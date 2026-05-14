@@ -52,13 +52,15 @@ Create a `.env` file in the project root:
 
 ```txt
 DATABASE_URL=sqlite:///students.db 
-DEBUG=True```
+DEBUG=True
+```
 
 ### Database Migrations
 
 ```txt
 export FLASK_APP=run.py
-flask db upgrade```
+flask db upgrade
+```
 
 ### Run Application 
 
