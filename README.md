@@ -25,8 +25,8 @@ and unit tests.
 
 ### Clone Repo
 ```txt
-`git clone https://github.com/JayanthNaiduKundrapu/student-crud-api.git`
-`cd student-crud-api`
+git clone https://github.com/JayanthNaiduKundrapu/student-crud-api.git
+cd student-crud-api
 ```
 ### Create Virtual Environment
 
@@ -40,7 +40,7 @@ and unit tests.
 
 `pip install -r requirements.txt`
 
-## Environment Variables
+### Environment Variables
 
 Create a `.env` file in the project root:
 
