@@ -24,41 +24,43 @@ and unit tests.
 ## Setup Instructions
 
 ### Clone Repo
-
-git clone https://github.com/JayanthNaiduKundrapu/student-crud-api.git
-cd student-crud-api
-
+```txt
+`git clone https://github.com/JayanthNaiduKundrapu/student-crud-api.git`
+`cd student-crud-api`
+```
 ### Create Virtual Environment
 
-python3 -m venv venv
+`python3 -m venv venv`
 
 ### Activate Virtual Env
 
-source venv/bin/activate
+`source venv/bin/activate`
 
 ### Install Dependencies
 
-pip install -r requirements.txt
+`pip install -r requirements.txt`
 
 ## Environment Variables
 
 Create a `.env` file in the project root:
 
+```txt
 DATABASE_URL=sqlite:///students.db 
-DEBUG=True
+DEBUG=True```
 
 ### Database Migrations
 
+```txt
 export FLASK_APP=run.py
-flask db upgrade
+flask db upgrade```
 
 ### Run Application 
 
-make run
+`make run`
 
 ### Run Tests
 
-make test
+`make test`
 
 ## API Endpoints
 
@@ -76,10 +78,10 @@ make test
 
 The exported Postman collection is available inside:
 
-postman/student-api.postman_collection.json
+`postman/student-api.postman_collection.json`
 
 
-### Application Structure
+## Application Structure
 
 Creating the folder structure as below :
 
@@ -115,12 +117,12 @@ student-crud-api/
 └── run.py 
 ```
 
-### Misc 
+## Misc 
 
 route -> service -> DB
 
 
-### typical post route :
+## typical post route :
 
 HTTP Request
 → Flask Route
