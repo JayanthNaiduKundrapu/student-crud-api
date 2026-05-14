@@ -83,6 +83,7 @@ postman/student-api.postman_collection.json
 
 Creating the folder structure as below :
 
+```txt
 student-crud-api/
 │
 ├── app/
@@ -112,7 +113,7 @@ student-crud-api/
 ├── README.md
 ├── requirements.txt
 └── run.py 
-
+```
 
 ### Misc 
 
@@ -129,6 +130,7 @@ HTTP Request
 → Commit
 → Response Serialization
 
+```txt
 student-crud-api/
 │
 ├── app/
@@ -151,4 +153,4 @@ student-crud-api/
 ├── requirements.txt   dependencies
 ├── README.md     about
 └── Makefile      command shortcut system    
-
+```
