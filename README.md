@@ -30,15 +30,21 @@ cd student-crud-api
 ```
 ### Create Virtual Environment
 
-`python3 -m venv venv`
+```txt
+python3 -m venv venv 
+```
 
 ### Activate Virtual Env
 
-`source venv/bin/activate`
+```txt
+source venv/bin/activate
+```
 
 ### Install Dependencies
 
-`pip install -r requirements.txt`
+```txt
+pip install -r requirements.txt
+```
 
 ### Environment Variables
 
