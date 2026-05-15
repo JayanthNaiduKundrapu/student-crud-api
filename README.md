@@ -48,25 +48,25 @@ and unit tests.
 git clone https://github.com/JayanthNaiduKundrapu/student-crud-api.git
 cd student-crud-api
 ```
-### Create Virtual Environment
+### Create Virtual Environment (local setup)
 
 ```txt
 python3 -m venv venv 
 ```
 
-### Activate Virtual Env
+### Activate Virtual Env (local setup)
 
 ```txt
 source venv/bin/activate
 ```
 
-### Install Dependencies
+### Install Dependencies (local setup)
 
 ```txt
 pip install -r requirements.txt
 ```
 
-### Environment Variables
+### Environment Variables (local setup)
 
 Create a `.env` file in the project root:
 
@@ -75,13 +75,26 @@ DATABASE_URL=sqlite:///students.db
 DEBUG=True
 ```
 
-### Database Migrations
+### Database Migrations (local setup)
 
 ```txt
 export FLASK_APP=run.py
 flask db upgrade
 ```
 
+### Run Application (locally)
+
+```txt
+make run
+```
+
+### Test Application (locally)
+
+```txt
+make test
+```
+
+---
 
 ## Docker Setup
 
@@ -208,7 +221,7 @@ HTTP Request
 student-crud-api/
 │
 ├── app/
-│   ├── __init__.py     creates flask app, connects everything, initializes db,      register routes
+│   ├── __init__.py     creates flask app, connects everything, initializes db,register routes
 │   ├── config.py       configs
 │   ├── extensions.py   Stores reusable Flask tools/extensions across app
 │   ├── models/         definition of database tables
