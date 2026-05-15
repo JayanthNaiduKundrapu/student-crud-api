@@ -19,28 +19,24 @@ def create_student():
     logger.info("Create student endpoint called")
     data = request.get_json()
 
-    # Validation for input data
+    if not data:
+        logger.error("Request payload is empty or invalid JSON")
+        return jsonify({"error": "Invalid request payload"}), 400
+
     required_fields = ["name", "email", "age"]
 
     for field in required_fields:
-
         if field not in data:
-
             logger.error(f"Missing field: {field}")
+            return jsonify({"error": f"{field} is required"}), 400
 
-            return jsonify({
-                "error": f"{field} is required"
-                }), 400
-        
-        if data["age"] <= 0:
-            return jsonify({
-                "error": "Age must be greater than 0"
-                }), 400
-        
-        if "@" not in data["email"]:
-            return jsonify({
-                "error": "Invalid email"
-                }), 400
+    if not isinstance(data["age"], int) or data["age"] <= 0:
+        logger.error("Invalid age value")
+        return jsonify({"error": "Age must be a positive integer"}), 400
+
+    if "@" not in data["email"]:
+        logger.error("Invalid email address")
+        return jsonify({"error": "Invalid email"}), 400
 
     student = Student(
         name=data["name"],
@@ -73,15 +69,12 @@ def get_students():
 @student_bp.route("/<int:student_id>", methods=["GET"])
 def get_student(student_id):
 
+    logger.info(f"Fetching student with ID {student_id}")
     student = Student.query.get(student_id)
-
-    logger.info(f"Fetching student with ID {student.id}")
 
     if not student:
         logger.error(f"Student with ID {student_id} not found")
-        return jsonify({
-            "error": "Student not found"
-        }), 404
+        return jsonify({"error": "Student not found"}), 404
 
     logger.info(f"Fetched student with ID {student_id} successfully")
 
@@ -90,17 +83,23 @@ def get_student(student_id):
 @student_bp.route("/<int:student_id>", methods=["PUT"])
 def update_student(student_id):
 
+    logger.info(f"Fetching student with ID {student_id}")
     student = Student.query.get(student_id)
-
-    logger.info(f"Fetching student with ID {student.id}")
 
     if not student:
         logger.error(f"Student with ID {student_id} not found")
-        return jsonify({
-            "error": "Student not found"
-        }), 404
+        return jsonify({"error": "Student not found"}), 404
 
     data = request.get_json()
+    if not data:
+        logger.error("Request payload is empty or invalid JSON")
+        return jsonify({"error": "Invalid request payload"}), 400
+
+    required_fields = ["name", "email", "age"]
+    for field in required_fields:
+        if field not in data:
+            logger.error(f"Missing field: {field}")
+            return jsonify({"error": f"{field} is required"}), 400
 
     student.name = data["name"]
     student.email = data["email"]
