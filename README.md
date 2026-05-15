@@ -38,6 +38,7 @@ and unit tests.
 - SQLite
 - Pytest
 - Postman
+- Docker
 
 
 ## Setup Instructions 
