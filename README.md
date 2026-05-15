@@ -9,6 +9,25 @@ logging, healthcheck endpoint,
 environment-based configuration,
 and unit tests.
 
+## Features
+
+- Student CRUD REST API
+
+- API versioning
+
+- Healthcheck endpoint
+
+- Database migrations
+
+- Structured logging
+
+- Unit testing
+
+- Docker containerization
+
+- Multi-stage Docker build
+
+- Runtime environment configuration
 
 ## Tech Stack
 
@@ -21,7 +40,7 @@ and unit tests.
 - Postman
 
 
-## Setup Instructions
+## Setup Instructions 
 
 ### Clone Repo
 ```txt
@@ -62,13 +81,49 @@ export FLASK_APP=run.py
 flask db upgrade
 ```
 
-### Run Application 
 
-`make run`
+## Docker Setup
 
-### Run Tests
+### Build Docker Image
 
-`make test`
+```bash
+make docker-build
+```
+
+---
+
+### Run Docker Container
+
+```bash
+make docker-run
+```
+
+---
+
+### Verify Container, Test Endpoints in Postman
+
+Open:
+
+```txt
+http://127.0.0.1:5000/healthcheck
+```
+
+Expected response:
+
+```json
+{
+  "status": "healthy"
+}
+```
+
+### Makefile Commands
+
+| Command | Description |
+|---|---|
+| `make run` | Run Flask API locally |
+| `make test` | Run unit tests |
+| `make docker-build` | Build Docker image |
+| `make docker-run` | Run Docker container |
 
 ## API Endpoints
 
@@ -122,8 +177,16 @@ student-crud-api/
 ├── pytest.ini
 ├── README.md
 ├── requirements.txt
+├── Dockerfile
+├── .dockerignore
+├── entrypoint.sh
 └── run.py 
+
 ```
+
+---
+---
+
 
 ## Misc 
 
