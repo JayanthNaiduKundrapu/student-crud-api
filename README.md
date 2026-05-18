@@ -1,136 +1,135 @@
 # Student CRUD REST API
 
-A REST API built using Flask and SQLAlchemy
-to manage student records.
+A simple Flask service for creating, reading, updating, and deleting student records.
 
-The project supports CRUD operations,
-database migrations, API versioning,
-logging, healthcheck endpoint,
-environment-based configuration,
-and unit tests.
+This repository supports local development, Docker deployment, database migrations, and unit tests.
 
 ## Features
 
-- Student CRUD REST API
-
-- API versioning
-
+- CRUD operations for students
+- Versioned API under `/api/v1`
 - Healthcheck endpoint
-
-- Database migrations
-
-- Structured logging
-
-- Unit testing
-
-- Docker containerization
-
-- Multi-stage Docker build
-
-- Runtime environment configuration
+- Database migrations with Flask-Migrate
+- Local SQLite support and PostgreSQL via Docker Compose
+- Unit tests with pytest
+- Dockerfile and Docker Compose support
 
 ## Tech Stack
 
-- Python
+- Python 3.12
 - Flask
-- SQLAlchemy
+- Flask-SQLAlchemy
 - Flask-Migrate
-- SQLite
+- PostgreSQL / SQLite
 - Pytest
-- Postman
 - Docker
 
+## Local setup
 
-## Setup Instructions 
+### 1. Clone the repository
 
-### Clone Repo
-```txt
+```bash
 git clone https://github.com/JayanthNaiduKundrapu/student-crud-api.git
 cd student-crud-api
 ```
-### Create Virtual Environment (local setup)
 
-```txt
-python3 -m venv venv 
-```
+### 2. Create and activate a virtual environment
 
-### Activate Virtual Env (local setup)
-
-```txt
+```bash
+python3 -m venv venv
 source venv/bin/activate
 ```
 
-### Install Dependencies (local setup)
+### 3. Install dependencies
 
-```txt
-pip install -r requirements.txt
+```bash
+make docker install
 ```
 
-### Environment Variables (local setup)
+### 4. Configure local environment
 
 Create a `.env` file in the project root:
 
-```txt
-DATABASE_URL=sqlite:///students.db 
+```env
+DATABASE_URL=sqlite:///students.db
 DEBUG=True
 ```
 
-### Database Migrations (local setup)
+### 5. Apply database migrations
 
-```txt
+```bash
 export FLASK_APP=run.py
-flask db upgrade
+make init-db
+make migrate
+make upgrade
 ```
 
-### Run Application (locally)
+### 6. Run the app locally
 
-```txt
+```bash
 make run
 ```
 
-### Test Application (locally)
+Open the app at `http://127.0.0.1:5000`.
 
-```txt
-make test
-```
+## Docker setup
 
----
-
-## Docker Setup
-
-### Build Docker Image
+### Build the image
 
 ```bash
 make docker-build
 ```
 
----
+### Recommended: run with Docker Compose
 
-### Run Docker Container
+This starts the Flask app and a PostgreSQL database together.
 
 ```bash
-make docker-run
+docker compose up --build
 ```
 
----
+The API will be available at `http://127.0.0.1:5000`.
 
-### Verify Container, Test Endpoints in Postman
+### Dockerfile-only run
 
-Open:
+If you need to run only the Flask container, make sure PostgreSQL is reachable from the container and that `DATABASE_URL` is set appropriately.
 
-```txt
-http://127.0.0.1:5000/healthcheck
+```bash
+docker run --rm -p 5000:5000 \
+  -e DATABASE_URL=postgresql://postgres:postgres@db:5432/students_db \
+  student-api:v1.0.0
 ```
 
-Expected response:
+> Note: `docker run` alone does not start the PostgreSQL service. Use Docker Compose for a complete setup.
 
-```json
-{
-  "status": "healthy"
-}
+## Testing
+
+```bash
+make test
 ```
 
-### Makefile Commands
+## API endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/v1/students` | Create a new student |
+| GET | `/api/v1/students` | Get all students |
+| GET | `/api/v1/students/<id>` | Get a student by ID |
+| PUT | `/api/v1/students/<id>` | Update a student |
+| DELETE | `/api/v1/students/<id>` | Delete a student |
+| GET | `/healthcheck` | Healthcheck endpoint |
+
+## Example request
+
+Create a new student:
+
+```bash
+curl -X POST http://127.0.0.1:5000/api/v1/students \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice","email":"alice@example.com","age":20}'
+```
+
+## Makefile commands
 
 | Command | Description |
 |---|---|
@@ -139,105 +138,38 @@ Expected response:
 | `make docker-build` | Build Docker image |
 | `make docker-run` | Run Docker container |
 
-## API Endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/v1/students` | Create a new student |
-| GET | `/api/v1/students` | Get all students |
-| GET | `/api/v1/students/<id>` | Get a student by ID |
-| PUT | `/api/v1/students/<id>` | Update student information |
-| DELETE | `/api/v1/students/<id>` | Delete a student |
-| GET | `/healthcheck` | Healthcheck endpoint |
-
-
-## Postman Collection
-
-The exported Postman collection is available inside:
-
-`postman/student-api.postman_collection.json`
-
-
-## Application Structure
-
-Creating the folder structure as below :
+## Project structure
 
 ```txt
 student-crud-api/
-│
 ├── app/
 │   ├── __init__.py
 │   ├── config.py
 │   ├── extensions.py
-│   │
 │   ├── models/
 │   │   └── student.py
-│   │
 │   ├── routes/
 │   │   └── student_routes.py
-│   │
 │   └── utils/
 │       └── logger.py
-│
-├── migrations/
 ├── postman/
+│   └── Student CRUD API.postman_collection.json
 ├── tests/
 │   ├── conftest.py
 │   └── test_students.py
-│
-├── .env.example
-├── .gitignore
-├── Makefile
-├── pytest.ini
-├── README.md
-├── requirements.txt
 ├── Dockerfile
-├── .dockerignore
+├── Makefile
+├── docker-compose.yaml
 ├── entrypoint.sh
-└── run.py 
-
+├── requirements.txt
+├── run.py
+├── README.md
+└── .env.example
 ```
 
----
----
+## Notes
 
-
-## Misc 
-
-route -> service -> DB
-
-
-## typical post route :
-
-HTTP Request
-→ Flask Route
-→ JSON Parsing
-→ ORM Object
-→ DB Session
-→ Commit
-→ Response Serialization
-
-```txt
-student-crud-api/
-│
-├── app/
-│   ├── __init__.py     creates flask app, connects everything, initializes db,register routes
-│   ├── config.py       configs
-│   ├── extensions.py   Stores reusable Flask tools/extensions across app
-│   ├── models/         definition of database tables
-│   │   └── student.py  student schema
-│   ├── routes/         api endpoints handler
-│   │   └── student_routes.py  recieve and return requests
-│   └── services/    actual business logic 
-│       └── student_service.py  create,validate,fetch,delete work logic
-│
-├── tests/   automated tests 
-├── migrations/   tracks structure/schema changes in db (like git vcs for db)
-│
-├── .env    stores secret, env vars
-├── .env.example   just a temnplate 
-├── run.py      entry point of app, this file starts server
-├── requirements.txt   dependencies
-├── README.md     about
-└── Makefile      command shortcut system    
-```
+- Use `docker compose up --build` for the full PostgreSQL + Flask environment.
+- Use SQLite locally for quick development with `DATABASE_URL=sqlite:///students.db`.
+- Run `flask db upgrade` whenever the model schema changes.
+- `docker run` is only appropriate when a PostgreSQL service is already available.

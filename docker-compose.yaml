@@ -1,0 +1,24 @@
+services:
+  python-app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/students_db
+    networks:
+      - student-network
+    depends_on:
+    - db
+  db:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=students_db
+    ports:
+      - "5432:5432"
+    networks:
+      - student-network
+networks:
+  student-network:
+    driver: bridge
