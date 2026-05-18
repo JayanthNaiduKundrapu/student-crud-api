@@ -13,7 +13,7 @@ on:
       - 'docker-compose.yml'
   workflow_dispatch:
 jobs:
-  build-test-lint:
+  lint-build-test:
     runs-on: self-hosted
     steps:
       - name: Checkout code
@@ -22,18 +22,18 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: '3.14'
-      - name: Install dependencies
-        run: |
-          make install
-      - name: Run tests
-        run: |
-          make test
       - name: Run linter
         run: | 
           make lint 
-  build-and-push:
+      - name: docker compose up
+        run: |
+          make docker-compose-up
+      - name: Run tests
+        run: |
+          make test
+  login-and-push:
     runs-on: self-hosted
-    needs: build-test-lint
+    needs: lint-build-test
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
