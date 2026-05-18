@@ -13,7 +13,7 @@ on:
       - 'docker-compose.yml'
   workflow_dispatch:
 jobs:
-  lint-build-test:
+  build-test-lint:
     runs-on: self-hosted
     steps:
       - name: Checkout code
@@ -21,11 +21,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.14'
-      - name: Run linter
-        run: | 
-          make lint 
-      - name: docker compose up
+          python-version: '3.14' 
+      - name: Build Docker containers
         run: |
           make docker-compose-up
       - name: Run tests
@@ -33,9 +30,12 @@ jobs:
           DATABASE_URL: ${{ vars.DATABASE_URL }}
         run: |
           make test
+      - name: Run linter
+        run: | 
+          make lint
   login-and-push:
     runs-on: self-hosted
-    needs: lint-build-test
+    needs: build-test-lint
     steps:
       - name: Checkout code
         uses: actions/checkout@v2

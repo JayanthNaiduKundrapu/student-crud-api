@@ -173,3 +173,4 @@ student-crud-api/
 - Use SQLite locally for quick development with `DATABASE_URL=sqlite:///students.db`.
 - Run `flask db upgrade` whenever the model schema changes.
 - `docker run` is only appropriate when a PostgreSQL service is already available.
+- While running the `Github CI workflow`, make sure to setup the neccessary environment, secret variables to ensure stages are successful
