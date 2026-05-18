@@ -29,7 +29,7 @@ jobs:
         run: |
           make test
       - name: Run linter
-        run: |
+        run: | 
           make lint
       - name: docker login
         run: |
