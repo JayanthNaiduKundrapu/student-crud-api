@@ -15,3 +15,15 @@ def test_create_student(client):
     )
 
     assert response.status_code == 201
+
+def test_get_students(client):
+
+    response = client.get("/api/v1/students")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    assert "name" in data[0]
+    assert "email" in data[0]
+    assert "age" in data[0]
+    

@@ -55,3 +55,7 @@ docker-compose-down:
 
 docker-compose-logs:
 	docker-compose logs 
+
+lint:
+	flake8 app tests
+
