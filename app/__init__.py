@@ -1,7 +1,6 @@
 from flask import Flask, jsonify
 from .config import Config
 from .extensions import db, migrate
-from .models.student import Student
 from .routes.student_routes import student_bp
 
 

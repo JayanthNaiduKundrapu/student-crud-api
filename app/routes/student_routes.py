@@ -3,8 +3,6 @@ from app.extensions import db
 from app.models.student import Student
 from app.utils.logger import setup_logger
 
-
-
 student_bp = Blueprint(
     "students",
     __name__,
@@ -13,9 +11,9 @@ student_bp = Blueprint(
 
 logger = setup_logger()
 
+
 @student_bp.route("", methods=["POST"])
 def create_student():
-
     logger.info("Create student endpoint called")
     data = request.get_json()
 
@@ -51,6 +49,7 @@ def create_student():
 
     return jsonify(student.to_dict()), 201
 
+
 @student_bp.route("", methods=["GET"])
 def get_students():
 
@@ -66,6 +65,7 @@ def get_students():
 
     return jsonify(result), 200
 
+
 @student_bp.route("/<int:student_id>", methods=["GET"])
 def get_student(student_id):
 
@@ -79,6 +79,7 @@ def get_student(student_id):
     logger.info(f"Fetched student with ID {student_id} successfully")
 
     return jsonify(student.to_dict()), 200
+
 
 @student_bp.route("/<int:student_id>", methods=["PUT"])
 def update_student(student_id):
@@ -113,6 +114,7 @@ def update_student(student_id):
         "message": "Student updated successfully"
     }), 200
 
+
 @student_bp.route("/<int:student_id>", methods=["DELETE"])
 def delete_student(student_id):
 
@@ -134,4 +136,4 @@ def delete_student(student_id):
 
     return jsonify({
         "message": "Student deleted successfully"
-    }), 200 
+    }), 200
