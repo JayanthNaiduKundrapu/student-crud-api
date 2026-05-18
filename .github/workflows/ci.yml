@@ -30,6 +30,7 @@ jobs:
           make docker-compose-up
       - name: Run tests
         run: |
+          DATABASE_URL: ${{ vars.DATABASE_URL }}
           make test
   login-and-push:
     runs-on: self-hosted
