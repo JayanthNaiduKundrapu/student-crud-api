@@ -174,3 +174,21 @@ student-crud-api/
 - Run `flask db upgrade` whenever the model schema changes.
 - `docker run` is only appropriate when a PostgreSQL service is already available.
 - While running the `Github CI workflow`, make sure to setup the neccessary environment, secret variables to ensure stages are successful
+
+# Baremetal Deployment
+
+- Run `Vagrant up` command, it will automatically start the application with the architecture described below
+
+
+- Test it via postman at 
+```txt
+Client/Postman
+      ↓
+localhost:8080
+      ↓
+NGINX
+   ↙      ↘
+API 1    API 2
+    \    /
+   PostgreSQL
+```
