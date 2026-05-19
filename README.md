@@ -180,7 +180,7 @@ student-crud-api/
 - Run `Vagrant up` command, it will automatically start the application with the architecture described below
 
 
-- Test it via postman at 
+- Test it via postman at http://localhost:8080/healthcheck
 ```txt
 Client/Postman
       ↓
@@ -192,3 +192,4 @@ API 1    API 2
     \    /
    PostgreSQL
 ```
+- (debug) to internally verify if one conatiner is able to reach db or other ; use ping / python shell -> import sockets -> sockets.gethostbyname("db")
