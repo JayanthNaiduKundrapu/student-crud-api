@@ -193,3 +193,26 @@ API 1    API 2
    PostgreSQL
 ```
 - (debug) to internally verify if one conatiner is able to reach db or other ; use ping / python shell -> import sockets -> sockets.gethostbyname("db")
+
+# K8 Deployment 
+
+- Setup local k8 cluster by installing `minikube` and `kubectl`
+- Create a local minikube cluster with 3 worker nodes and one master control plane, using docker as a driver
+```bash
+minikube start --nodes 4 --driver=docker
+kubectl get nodes
+```
+- Inspect the nodes for validating and understanding node configs : 
+```bash
+kubectl describe node < node-name >
+```
+- Assign labels to all the 3 worker nodes in teh cluster :
+```bash
+kubectl label node minikube-m02 type=application
+kubectl label node minikube-m03 type=database
+kubectl label node minikube-m04 type=dependent_services
+```
+- Verify the labels :
+```bash
+kubectl get nodes --show-labels
+```
