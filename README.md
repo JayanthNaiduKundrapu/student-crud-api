@@ -216,3 +216,40 @@ kubectl label node minikube-m04 type=dependent_services
 ```bash
 kubectl get nodes --show-labels
 ```
+
+- K8 folder architecture follows as below :
+Kuberenetes/
+├── application/
+│   ├── application.yml
+├── database/
+│   ├── database.yml
+├── external-secrets/
+│   ├── eso.yml
+├── namespace/
+│   ├── namespace.yml
+
+- To create namespace do `kubectl apply -f namespace/namespace.yml`
+
+- To create database workload do ` kubectl apply -f database/database.yml`
+
+- verify database workload
+```bash
+kubectl get deployments -n student-api
+kubectl get svc -n student-api
+kubectl get cm -n student-api
+kubectl get secrets -n student-api
+
+kubectl describe < pod-name > -n student-api
+or 
+kubectl get pods -n student-api -o wide
+
+-> verify the node it got scheduled on
+
+if node
+
+debugging 
+
+kubectl exec -it < pod-name > -n student-api -- bash
+
+>> env | grep POSTGRES 
+```
