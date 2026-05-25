@@ -43,7 +43,7 @@ source venv/bin/activate
 ### 3. Install dependencies
 
 ```bash
-make docker install
+make install
 ```
 
 ### 4. Configure local environment
