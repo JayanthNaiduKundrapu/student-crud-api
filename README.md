@@ -230,9 +230,9 @@ kubectl get pods -n vault
 # exec into the vault pod
 kubectl exec -it vault-0 -n vault -- sh
 
-# inside the pod — these env vars are already set in dev mode
-export VAULT_ADDR='http://127.0.0.1:8200'
-export VAULT_TOKEN='root'
+# inside the pod — these env vars are already set in dev mode, do echo else configure
+# VAULT_ADDR='http://127.0.0.1:8200'
+# VAULT_TOKEN='root'
 
 # write your secret
 vault kv put secret/student-api POSTGRES_PASSWORD=postgres
@@ -265,7 +265,7 @@ kubectl get pods -n external-secrets
 ```bash
 kubectl apply -f namespace/namespace.yml
 
-# create vault-token secret (always manual — never commit this)
+# create vault-token secret (always manual)
 kubectl create secret generic vault-token \
   --from-literal=VAULT_TOKEN=root \
   -n student-api
@@ -359,12 +359,12 @@ helm template student-api helm/student-api
 # install
 helm install student-api helm/student-api
 
-# create vault-token secret (always manual — never commit this)
+# create vault-token secret (always manual)
 kubectl create secret generic vault-token \
   --from-literal=VAULT_TOKEN=root \
   -n student-api
 
-# force ESO to sync immediately (default refresh is 1h)
+# force ESO to sync immediately (default refresh is 1m)
 kubectl annotate externalsecret student-api-secret \
   force-sync=$(date +%s) \
   --overwrite -n student-api
@@ -413,7 +413,7 @@ db:
   database: students_db
 
 externalSecret:
-  refreshInterval: "1h" # how often ESO re-syncs from Vault
+  refreshInterval: "1m" # how often ESO re-syncs from Vault
 ```
 
 ---
