@@ -1,0 +1,50 @@
+namespace: student-api
+
+app:
+  name: student-api
+  image:
+    repository: jayanthkundrapu/student-api
+    tag: "v1.1.1"
+  replicas: 2
+  port: 5000
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "500m"
+    limits:
+      memory: "512Mi"
+      cpu: "1"
+  nodeSelector:
+    type: application
+
+db:
+  name: postgres
+  image:
+    repository: postgres
+    tag: "latest"
+  replicas: 1
+  port: 5432
+  database: students_db
+  user: postgres
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "500m"
+    limits:
+      memory: "512Mi"
+      cpu: "1"
+  nodeSelector:
+    type: database
+
+vault:
+  server: "http://vault.vault.svc.cluster.local:8200"
+  path: "secret"
+  version: "v2"
+  tokenSecret:
+    name: vault-token
+    key: VAULT_TOKEN
+
+externalSecret:
+  refreshInterval: "1m"
+  secretName: student-api-secret
+  vaultPath: student-api

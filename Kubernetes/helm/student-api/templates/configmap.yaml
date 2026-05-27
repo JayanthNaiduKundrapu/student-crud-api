@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: {{ .Values.namespace }}
+data:
+  POSTGRES_USER: {{ .Values.db.user | quote }}
+  POSTGRES_DB: {{ .Values.db.database | quote }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: student-api-config
+  namespace: {{ .Values.namespace }}
+data:
+  DB_HOST: "postgres-service"
+  DB_PORT: {{ .Values.db.port | quote }}
+  DB_NAME: {{ .Values.db.database | quote }}
+  DB_USER: {{ .Values.db.user | quote }}

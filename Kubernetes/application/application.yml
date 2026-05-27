@@ -29,7 +29,7 @@ spec:
         type: application
       containers:
       - name: student-api
-        image: jayanthkundrapu/student-api:v1.0.0
+        image: jayanthkundrapu/student-api:v1.1.1
         ports:
         - containerPort: 5000
         envFrom:

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: student-api
+description: Flask REST API with PostgreSQL, Vault and ESO
+type: application
+version: 0.1.0        # chart version 
+appVersion: "v1.0.0"  # your app image version
