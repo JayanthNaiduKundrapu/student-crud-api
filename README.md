@@ -11,7 +11,7 @@ A Flask REST API for managing student records, with support for local developmen
 - PostgreSQL via Docker Compose or Kubernetes
 - Unit tests with pytest
 - Dockerfile and Docker Compose support
-- Helm chart for Kubernetes deployment
+- Helm chart for Kubernetes deployment (local and remote)
 - Secret management via HashiCorp Vault + ESO
 
 ## Tech Stack
@@ -68,6 +68,9 @@ student-crud-api/
 │               ├── service.yaml
 │               ├── secret-store.yaml
 │               └── external-secret.yaml
+├── docs/                        # Helm chart repository (served via GitHub Pages)
+│   ├── index.yaml
+│   └── student-api-0.1.0.tgz
 ├── tests/
 ├── Dockerfile
 ├── Makefile
@@ -230,17 +233,13 @@ kubectl get pods -n vault
 # exec into the vault pod
 kubectl exec -it vault-0 -n vault -- sh
 
-# inside the pod — these env vars are already set in dev mode, do echo else configure
-# VAULT_ADDR='http://127.0.0.1:8200'
-# VAULT_TOKEN='root'
-
+# VAULT_ADDR and VAULT_TOKEN are already set in dev mode
 # write your secret
 vault kv put secret/student-api POSTGRES_PASSWORD=postgres
 
 # verify
 vault kv get secret/student-api
 
-# exit the pod
 exit
 ```
 
@@ -263,9 +262,11 @@ kubectl get pods -n external-secrets
 ## Deploy with Raw Manifests
 
 ```bash
+cd Kubernetes
+
 kubectl apply -f namespace/namespace.yml
 
-# create vault-token secret (always manual)
+# create vault-token secret (always manual — never commit this)
 kubectl create secret generic vault-token \
   --from-literal=VAULT_TOKEN=root \
   -n student-api
@@ -295,10 +296,7 @@ kubectl port-forward svc/student-api-service 8080:80 -n student-api
 ### Debug
 
 ```bash
-# describe a pod
 kubectl describe pod <pod-name> -n student-api
-
-# exec into a pod
 kubectl exec -it <pod-name> -n student-api -- sh
 env | grep POSTGRES
 ```
@@ -324,47 +322,78 @@ helm/student-api/
     └── external-secret.yaml
 ```
 
-## Prerequisites
+## Option A — Install from Local Chart
 
-Same as raw manifests — Vault and ESO must be running first:
+### Prerequisites
+
+Vault and ESO must be running first:
 
 ```bash
-# 1. install vault (if not already)
+# 1. install vault
 helm install vault hashicorp/vault \
   -n vault --create-namespace \
   --set "server.dev.enabled=true"
 
 # 2. write secret into vault
 kubectl exec -it vault-0 -n vault -- sh
-# inside the pod run:
-# export VAULT_ADDR='http://127.0.0.1:8200'
-# export VAULT_TOKEN='root'
 vault kv put secret/student-api POSTGRES_PASSWORD=postgres
-# exit
+exit
 
-# 3. install ESO (if not already)
+# 3. install ESO
 helm install external-secrets external-secrets/external-secrets \
   -n external-secrets --create-namespace --wait
 ```
 
-## Deploy with Helm
+### Install
 
 ```bash
 cd Kubernetes
 
-# dry run — verify templates without deploying
+# dry run first — verify templates without deploying
 helm lint helm/student-api
 helm template student-api helm/student-api
 
 # install
 helm install student-api helm/student-api
+```
 
-# create vault-token secret (always manual)
+## Option B — Install from Remote Chart Repository
+
+The chart is published at:
+```
+https://jayanthnaidukundrapu.github.io/student-crud-api/
+```
+
+### Prerequisites
+
+Same as Option A — Vault and ESO must be running first (see above).
+
+### Install
+
+```bash
+# add the chart repo
+helm repo add student-api https://jayanthnaidukundrapu.github.io/student-crud-api/
+helm repo update
+
+# verify chart is available
+helm search repo student-api
+
+# install
+helm install student-api student-api/student-api
+
+# install a specific version
+helm install student-api student-api/student-api --version 0.1.0
+```
+
+## After Install (both options)
+
+```bash
+# create vault-token secret (always manual — never commit this)
 kubectl create secret generic vault-token \
   --from-literal=VAULT_TOKEN=root \
   -n student-api
 
-# force ESO to sync immediately (default refresh is 1m)
+# force ESO to sync immediately (default refresh is 1h)
 kubectl annotate externalsecret student-api-secret \
   force-sync=$(date +%s) \
   --overwrite -n student-api
@@ -389,8 +418,12 @@ kubectl port-forward svc/student-api-service 8080:80 -n student-api
 ### Upgrade after changes
 
 ```bash
-# after editing values.yaml or templates
+# local chart
 helm upgrade student-api helm/student-api
+
+# remote chart
+helm repo update
+helm upgrade student-api student-api/student-api
 ```
 
 ### Uninstall
@@ -413,7 +446,29 @@ db:
   database: students_db
 
 externalSecret:
-  refreshInterval: "1m" # how often ESO re-syncs from Vault
+  refreshInterval: "1h" # how often ESO re-syncs from Vault
+```
+
+## Publishing a New Chart Version
+
+When you update the chart, bump the version in `Chart.yaml` and republish:
+
+```bash
+# 1. bump version in Chart.yaml (e.g. 0.1.0 → 0.2.0)
+
+# 2. package
+helm package Kubernetes/helm/student-api
+
+# 3. move to docs/
+mv student-api-0.2.0.tgz docs/
+
+# 4. regenerate index (keeps all previous versions)
+helm repo index docs/ --url https://jayanthnaidukundrapu.github.io/student-crud-api/
+
+# 5. push
+git add docs/
+git commit -m "helm chart release 0.2.0"
+git push origin master
 ```
 
 ---
@@ -446,7 +501,7 @@ HashiCorp Vault
 | Step | How |
 |---|---|
 | Install Vault, ESO | `helm install` (one time) |
-| Write secret into Vault | Manual — `vault kv put` |
+| Write secret into Vault | Manual — `vault kv put` inside vault pod |
 | Create `vault-token` K8s secret | Manual — `kubectl create secret` |
 | SecretStore, ExternalSecret | Helm (automated) |
 | K8s Secret creation | ESO (automated) |
@@ -459,8 +514,9 @@ HashiCorp Vault
 | Symptom | What to check |
 |---|---|
 | SecretStore `InvalidProvider` | Vault URL wrong — `kubectl get svc -n vault` |
-| ExternalSecret `SecretSyncedError` | Vault path missing — `vault kv get secret/student-api` |
+| ExternalSecret `SecretSyncedError` | Vault path missing — exec into vault pod and run `vault kv get secret/student-api` |
 | ExternalSecret not re-syncing | Force sync — `kubectl annotate externalsecret student-api-secret force-sync=$(date +%s) --overwrite -n student-api` |
 | Pod `CrashLoopBackOff` | Secret not mounted — `kubectl describe pod <name> -n student-api` |
 | `no matches for kind SecretStore` | ESO not installed — `kubectl get pods -n external-secrets` |
 | `students` table does not exist | Postgres not ready when migrations ran — check pod logs |
+| `helm install` 404 error | index.yaml has wrong URL — regenerate with correct GitHub Pages URL |
