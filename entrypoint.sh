@@ -1,6 +1,7 @@
 #!/bin/sh
 
 echo "Waiting for postgres..."
+POSTGRES_HOST=${POSTGRES_HOST:-postgres-service}
 while ! python3 -c "import socket; s=socket.create_connection(('postgres-service', 5432), timeout=1)" 2>/dev/null; do
   sleep 1
 done
