@@ -1,0 +1,75 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - app/**
+      - tests/**
+      - '*.py'
+      - 'Makefile'
+      - 'entrypoint.sh'
+      - '.github/workflows/ci.yml'
+      - 'requirements.txt'
+      - 'Dockerfile'
+      - 'docker-compose.yml'
+
+  push:
+    branches:
+      - master
+    paths:
+      - app/**
+      - tests/**
+      - '*.py'
+      - 'Makefile'
+      - 'entrypoint.sh'
+      - 'requirements.txt'
+      - 'Dockerfile'
+
+jobs:
+  lint-and-test:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.14'
+
+      - name: Run linter
+        run: make lint
+
+      - name: Run docker compose
+        run: make docker-compose-up
+
+      - name: Run tests
+        env:
+          DATABASE_URL: ${{ vars.DATABASE_URL }}
+        run: make test
+
+  build-push-deploy:
+    runs-on: self-hosted
+    needs: lint-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Build and push
+        run: |
+          TAG=sha-$(git rev-parse --short HEAD)
+          echo "TAG=$TAG" >> $GITHUB_ENV        # ← saves to GITHUB_ENV
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME }}:$TAG .
+          docker push ${{ secrets.DOCKER_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME }}:$TAG
+
+      - name: Update values.yaml and push
+        run: |
+          sed -i 's|tag:.*|tag: "'"$TAG"'"|' Kubernetes/helm/student-api/values.yaml
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add Kubernetes/helm/student-api/values.yaml
+          git commit -m "ci: update image tag to $TAG"
+          git push origin master

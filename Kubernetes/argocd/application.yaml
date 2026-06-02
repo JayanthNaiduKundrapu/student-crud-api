@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: student-api
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io   # cleans up when app is deleted
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/JayanthNaiduKundrapu/student-crud-api
+    targetRevision: master                      # which branch to watch
+    path: Kubernetes/helm/student-api           # where the helm chart is
+
+  destination:
+    server: https://kubernetes.default.svc      # deploy to same cluster ArgoCD runs in
+    namespace: student-api
+
+  syncPolicy:
+    automated:
+      prune: true        # if you remove something from git, ArgoCD removes it from cluster
+      selfHeal: true     # if someone manually changes cluster, ArgoCD reverts it
+    syncOptions:
+      - CreateNamespace=true    # creates student-api namespace if it doesn't exist

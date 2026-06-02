@@ -12,7 +12,7 @@ services:
     networks:
       - student-network
   python-app-api-1:
-    image: jayanthkundrapu/student-api:v1.0.0
+    build: . 
     container_name: api1
     expose:
       - "5000"
@@ -23,7 +23,7 @@ services:
     depends_on:
     - db
   python-app-api-2:
-    image: jayanthkundrapu/student-api:v1.0.0
+    build: .
     container_name: api2
     expose:
       - "5000"
