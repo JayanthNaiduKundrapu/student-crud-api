@@ -1,5 +1,6 @@
 import random
 
+
 def test_healthcheck(client):
 
     response = client.get("/healthcheck")
