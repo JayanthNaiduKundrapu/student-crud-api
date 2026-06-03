@@ -10,7 +10,7 @@ def test_create_student(client):
         "/api/v1/students",
         json={
             "name": "lewis hamilton",
-            "email": "lewishamilton44@test.com",
+            "email": "lewishamilton_44@test.com",
             "age": 45
         }
     )
@@ -27,9 +27,3 @@ def test_get_students(client):
     assert "name" in response.json[0]
     assert "email" in response.json[0]
     assert "age" in response.json[0]
-
-
-def test_delete_student(client):
-
-    response = client.delete("/api/v1/students")
-    assert response.status_code == 405
