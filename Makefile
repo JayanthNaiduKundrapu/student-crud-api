@@ -53,9 +53,6 @@ docker-compose-up:
 docker-compose-down:
 	docker-compose down -v
 
-docker-compose-logs:
-	docker-compose logs 
-
 lint:
 	flake8 app tests
 
