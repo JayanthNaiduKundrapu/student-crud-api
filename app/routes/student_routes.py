@@ -137,3 +137,18 @@ def delete_student(student_id):
     return jsonify({
         "message": "Student deleted successfully"
     }), 200
+
+@student_bp.route("",methods=["DELETE"])
+def delete_all_students():
+
+    logger.info("Deleting all students")
+
+    num_deleted = Student.query.delete()
+
+    db.session.commit()
+
+    logger.info(f"Deleted {num_deleted} students successfully")
+
+    return jsonify({
+        "message": f"Deleted {num_deleted} students successfully"
+    }), 200

@@ -9,7 +9,7 @@ def test_create_student(client):
     response = client.post(
         "/api/v1/students",
         json={
-            "name": "lewiis hamilton",
+            "name": "lewis hamilton",
             "email": "hammertime44@test.com",
             "age": 45
         }
@@ -21,7 +21,7 @@ def test_create_student(client):
 def test_get_students(client):
 
     response = client.get("/api/v1/students")
-    response = client.delete("/api/v1/students/1")
+    response = client.delete("/api/v1/students")
     assert response.status_code == 200
     assert isinstance(response.json, list)
     assert len(response.json) >= 1
