@@ -50,6 +50,9 @@ docker-stop-db:
 docker-compose-up:
 	docker-compose up --build -d
 
+docker-compose-logs:
+	docker-compose logs
+
 docker-compose-down:
 	docker-compose down -v
 
