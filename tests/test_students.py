@@ -33,4 +33,3 @@ def test_delete_student(client):
 
     response = client.delete("/api/v1/students")
     assert response.status_code == 405
-
