@@ -1,3 +1,5 @@
+import random
+
 def test_healthcheck(client):
 
     response = client.get("/healthcheck")
@@ -10,7 +12,7 @@ def test_create_student(client):
         "/api/v1/students",
         json={
             "name": "max verstappen",
-            "email": "maxverstappen@test.com",
+            "email": "maxverstappen" + str(random.randint(1, 10000)) + "@test.com",
             "age": 45
         }
     )

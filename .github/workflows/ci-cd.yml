@@ -68,9 +68,9 @@ jobs:
 
       - name: Update values.yaml and push
         run: |
-          sed -i 's|tag:.*|tag: "'"$TAG"'"|' ./Kubernetes/helm/student-api/values.yaml
+          sed -i 's/tag:.*/tag: "'"$TAG"'"/' Kubernetes/helm/student-api/values.yaml
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add ./Kubernetes/helm/student-api/values.yaml
+          git add Kubernetes/helm/student-api/values.yaml
           git commit -m "ci: update image tag to $TAG"
           git push origin master
