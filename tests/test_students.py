@@ -9,8 +9,8 @@ def test_create_student(client):
     response = client.post(
         "/api/v1/students",
         json={
-            "name": "lewis hamilton",
-            "email": "sirlewishamilton_44@test.com",
+            "name": "max verstappen",
+            "email": "maxverstappen@test.com",
             "age": 45
         }
     )
