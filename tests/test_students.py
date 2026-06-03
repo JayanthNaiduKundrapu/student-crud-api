@@ -21,7 +21,7 @@ def test_create_student(client):
 def test_get_students(client):
 
     response = client.get("/api/v1/students")
-    resonse = client.delete("/api/v1/students/1")  # Clean up the created student
+    response = client.delete("/api/v1/students/1")
     assert response.status_code == 200
     assert isinstance(response.json, list)
     assert len(response.json) >= 1
