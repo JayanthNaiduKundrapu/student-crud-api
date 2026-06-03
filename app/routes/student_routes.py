@@ -138,7 +138,8 @@ def delete_student(student_id):
         "message": "Student deleted successfully"
     }), 200
 
-@student_bp.route("",methods=["DELETE"])
+
+@student_bp.route("", methods=["DELETE"])
 def delete_all_students():
 
     logger.info("Deleting all students")
