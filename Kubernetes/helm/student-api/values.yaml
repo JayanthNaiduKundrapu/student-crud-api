@@ -21,7 +21,7 @@ db:
   name: postgres
   image:
     repository: postgres
-    tag: "sha-6e29d5d"
+    tag: "latest"
   replicas: 1
   port: 5432
   database: students_db
