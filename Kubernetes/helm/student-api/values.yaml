@@ -4,7 +4,7 @@ app:
   name: student-api
   image:
     repository: jayanthkundrapu/student-api
-  tag: "sha-746290d"
+  tag: "sha-f9b82a1"
   replicas: 2
   port: 5000
   resources:
