@@ -12,7 +12,7 @@ def test_create_student(client):
         "/api/v1/students",
         json={
             "name": "max verstappen",
-            "email": "maxverstappen" + str(random.randint(1, 10000)) + "@test.com",
+            "email": "maxverst" + str(random.randint(1, 10000)) + "@test.com",
             "age": 45
         }
     )
