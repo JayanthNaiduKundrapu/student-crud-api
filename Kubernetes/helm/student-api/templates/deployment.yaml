@@ -47,6 +47,25 @@ spec:
         app: {{ .Values.app.name }}
     spec:
       nodeSelector: {{ toYaml .Values.app.nodeSelector | nindent 8 }}
+      initContainers:
+      - name: migrate-db
+        image: {{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}
+        workingDir: /
+        command:
+        - sh
+        - -c
+        - "until python3 -c 'import socket; s=socket.create_connection((\"$DB_HOST\", int(\"$DB_PORT\")), timeout=1)' 2>/dev/null; do echo 'Waiting for postgres...'; sleep 1; done; flask db upgrade"
+        envFrom:
+        - configMapRef:
+            name: student-api-config
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.externalSecret.secretName }}
+              key: POSTGRES_PASSWORD
+        - name: DATABASE_URL
+          value: "postgresql://$(DB_USER):$(POSTGRES_PASSWORD)@postgres-service:$(DB_PORT)/$(DB_NAME)"
       containers:
       - name: {{ .Values.app.name }}
         image: {{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}
@@ -63,4 +82,13 @@ spec:
               key: POSTGRES_PASSWORD
         - name: DATABASE_URL
           value: "postgresql://$(DB_USER):$(POSTGRES_PASSWORD)@postgres-service:$(DB_PORT)/$(DB_NAME)"
+        readinessProbe:
+          httpGet:
+            path: /healthcheck
+            port: {{ .Values.app.port }}
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 3
+          successThreshold: 1
         resources: {{ toYaml .Values.app.resources | nindent 10 }}

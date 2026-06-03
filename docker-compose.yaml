@@ -12,17 +12,16 @@ services:
     networks:
       - student-network
   python-app-api-1:
-    build: . 
+    build: .
     container_name: api1
     expose:
       - "5000"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/students_db
-      - POSTGRES_HOST=db 
     networks:
       - student-network
     depends_on:
-    - db
+      - migrate
   python-app-api-2:
     build: .
     container_name: api2
@@ -30,11 +29,22 @@ services:
       - "5000"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/students_db
-      - POSTGRES_HOST=db
     networks:
       - student-network
     depends_on:
-    - db
+      - migrate
+  migrate:
+    build: .
+    container_name: migrate
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/students_db
+    command: >
+      sh -c "until python3 -c 'import socket; s=socket.create_connection((\"db\", 5432), timeout=1)' 2>/dev/null; do sleep 1; done; flask db migrate && flask db upgrade"
+    depends_on:
+      - db
+    networks:
+      - student-network
+    restart: "no"
   db:
     image: postgres:latest
     container_name: db
@@ -46,6 +56,13 @@ services:
       - "5432:5432"
     networks:
       - student-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 networks:
   student-network:
     driver: bridge
+volumes:
+  db-data:

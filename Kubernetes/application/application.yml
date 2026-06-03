@@ -27,6 +27,25 @@ spec:
     spec:
       nodeSelector:
         type: application
+      initContainers:
+      - name: migrate-db
+        image: jayanthkundrapu/student-api:v1.1.1
+        workingDir: /
+        command:
+        - sh
+        - -c
+        - "until python3 -c 'import socket; s=socket.create_connection((\"$DB_HOST\", int(\"$DB_PORT\")), timeout=1)' 2>/dev/null; do echo 'Waiting for postgres...'; sleep 1; done; flask db upgrade"
+        envFrom:
+        - configMapRef:
+            name: student-api-config
+        env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: student-api-secret
+              key: POSTGRES_PASSWORD
+        - name: DATABASE_URL
+          value: "postgresql://postgres:$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
       containers:
       - name: student-api
         image: jayanthkundrapu/student-api:v1.1.1
@@ -43,6 +62,15 @@ spec:
               key: POSTGRES_PASSWORD
         - name: DATABASE_URL
           value: "postgresql://postgres:$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
+        readinessProbe:
+          httpGet:
+            path: /healthcheck
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 3
+          successThreshold: 1
         resources:
           requests:
             memory: "256Mi"

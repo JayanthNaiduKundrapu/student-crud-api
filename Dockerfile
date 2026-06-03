@@ -11,8 +11,8 @@ COPY --from=builder /install /usr/local
 COPY . .
 
 EXPOSE 5000
-RUN chmod +x entrypoint.sh
+RUN chmod +x run.py
 
 ENV FLASK_APP=run.py
 
-CMD ["sh", "./entrypoint.sh"]
+CMD ["python3", "run.py"]
