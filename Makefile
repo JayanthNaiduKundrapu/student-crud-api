@@ -48,7 +48,7 @@ docker-stop-db:
 	docker stop postgres-db
 
 docker-compose-up:
-	docker-compose up -d
+	docker-compose up --build -d
 
 docker-compose-down:
 	docker-compose down -v
