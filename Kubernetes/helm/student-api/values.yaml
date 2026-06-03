@@ -4,7 +4,7 @@ app:
   name: student-api
   image:
     repository: jayanthkundrapu/student-api
-    tag: "v1.1.1"
+    tag: "sha-6e29d5d"
   replicas: 2
   port: 5000
   resources:
@@ -21,7 +21,7 @@ db:
   name: postgres
   image:
     repository: postgres
-    tag: "latest"
+    tag: "sha-6e29d5d"
   replicas: 1
   port: 5432
   database: students_db
