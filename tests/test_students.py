@@ -10,7 +10,7 @@ def test_create_student(client):
         "/api/v1/students",
         json={
             "name": "lewis hamilton",
-            "email": "lewishamilton_44@test.com",
+            "email": "sirlewishamilton_44@test.com",
             "age": 45
         }
     )
