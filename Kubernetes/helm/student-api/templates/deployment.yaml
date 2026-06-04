@@ -56,7 +56,13 @@ spec:
         command:
         - sh
         - -c
-        - "until python3 -c 'import socket; s=socket.create_connection((\"$DB_HOST\", int(\"$DB_PORT\")), timeout=1)' 2>/dev/null; do echo 'Waiting for postgres...'; sleep 1; done; flask db upgrade"
+        - |
+          until python3 -c "import socket; s=socket.create_connection(('postgres-service', 5432), timeout=1)" 2>/dev/null; do
+            echo 'Waiting for postgres...'
+            sleep 1
+          done
+          echo 'Postgres is ready!'
+          flask db upgrade
         envFrom:
         - configMapRef:
             name: student-api-config
