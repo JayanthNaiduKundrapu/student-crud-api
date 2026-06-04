@@ -14,7 +14,7 @@ on:
       - 'requirements.txt'
       - 'Dockerfile'
       - 'docker-compose.yml'
-      - ci-cd.yml
+      - 'ci-cd.yml'
 
   push:
     branches:
@@ -27,10 +27,7 @@ on:
       - 'entrypoint.sh'
       - 'requirements.txt'
       - 'Dockerfile'
-      - '*.yaml'
-      - '*.yml'
-      - 'Kubernetes/**'
-      - ci-cd.yml
+      - 'ci-cd.yml'
 
 jobs:
   lint-and-test:
@@ -57,7 +54,7 @@ jobs:
 
   build-push-deploy:
     runs-on: self-hosted
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && github.actor != 'github-actions' && !startsWith(github.event.head_commit.message, 'ci:')
     steps:
       - uses: actions/checkout@v2
         with:
