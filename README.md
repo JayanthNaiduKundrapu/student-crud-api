@@ -1,6 +1,6 @@
 # Student CRUD REST API
 
-A Flask REST API for managing student records, with support for local development, Docker, bare metal, Kubernetes, and Helm deployments. Secrets are managed via HashiCorp Vault and External Secrets Operator.
+A Flask REST API for managing student records, with support for local development, Docker, bare metal, Kubernetes, Helm, and GitOps deployments via ArgoCD. Secrets are managed via HashiCorp Vault and External Secrets Operator.
 
 ## Features
 
@@ -13,6 +13,8 @@ A Flask REST API for managing student records, with support for local developmen
 - Dockerfile and Docker Compose support
 - Helm chart for Kubernetes deployment (local and remote)
 - Secret management via HashiCorp Vault + ESO
+- GitOps deployments via ArgoCD
+- CI/CD pipeline via GitHub Actions with self-hosted runner
 
 ## Tech Stack
 
@@ -21,6 +23,7 @@ A Flask REST API for managing student records, with support for local developmen
 - Docker, Docker Compose
 - Kubernetes, Helm
 - HashiCorp Vault, External Secrets Operator
+- ArgoCD, GitHub Actions
 
 ## API Endpoints
 
@@ -47,6 +50,9 @@ student-crud-api/
 │   │   └── student_routes.py
 │   └── utils/
 │       └── logger.py
+├── migrations/
+│   └── versions/
+│       └── c1945a5d6d80_initial_migration.py
 ├── Kubernetes/
 │   ├── application/
 │   │   └── application.yml
@@ -57,6 +63,10 @@ student-crud-api/
 │   │   └── external-secret.yml
 │   ├── namespace/
 │   │   └── namespace.yml
+│   ├── argocd/
+│   │   ├── values.yaml          # nodeSelector for dependent_services node
+│   │   ├── application.yaml     # ArgoCD Application manifest
+│   │   └── repository-secret.yaml
 │   └── helm/
 │       └── student-api/
 │           ├── Chart.yaml
@@ -71,6 +81,9 @@ student-crud-api/
 ├── docs/                        # Helm chart repository (served via GitHub Pages)
 │   ├── index.yaml
 │   └── student-api-0.1.0.tgz
+├── .github/
+│   └── workflows/
+│       └── ci-cd.yml
 ├── tests/
 ├── Dockerfile
 ├── Makefile
@@ -234,12 +247,8 @@ kubectl get pods -n vault
 kubectl exec -it vault-0 -n vault -- sh
 
 # VAULT_ADDR and VAULT_TOKEN are already set in dev mode
-# write your secret
 vault kv put secret/student-api POSTGRES_PASSWORD=postgres
-
-# verify
 vault kv get secret/student-api
-
 exit
 ```
 
@@ -316,7 +325,7 @@ helm/student-api/
 └── templates/        # templated K8s manifests
     ├── namespace.yaml
     ├── configmap.yaml
-    ├── deployment.yaml
+    ├── deployment.yaml  # includes init container for migrations
     ├── service.yaml
     ├── secret-store.yaml
     └── external-secret.yaml
@@ -325,8 +334,6 @@ helm/student-api/
 ## Option A — Install from Local Chart
 
 ### Prerequisites
-
-Vault and ESO must be running first:
 
 ```bash
 # 1. install vault
@@ -349,7 +356,7 @@ helm install external-secrets external-secrets/external-secrets \
 ```bash
 cd Kubernetes
 
-# dry run first — verify templates without deploying
+# dry run first
 helm lint helm/student-api
 helm template student-api helm/student-api
 
@@ -364,25 +371,11 @@ The chart is published at:
 https://jayanthnaidukundrapu.github.io/student-crud-api/
 ```
 
-### Prerequisites
-
-Same as Option A — Vault and ESO must be running first (see above).
-
-### Install
-
 ```bash
-# add the chart repo
 helm repo add student-api https://jayanthnaidukundrapu.github.io/student-crud-api/
 helm repo update
-
-# verify chart is available
 helm search repo student-api
-
-# install
 helm install student-api student-api/student-api
-
-# install a specific version
-helm install student-api student-api/student-api --version 0.1.0
 ```
 
 ## After Install (both options)
@@ -393,7 +386,7 @@ kubectl create secret generic vault-token \
   --from-literal=VAULT_TOKEN=root \
   -n student-api
 
-# force ESO to sync immediately (default refresh is 1h)
+# force ESO to sync immediately
 kubectl annotate externalsecret student-api-secret \
   force-sync=$(date +%s) \
   --overwrite -n student-api
@@ -418,12 +411,11 @@ kubectl port-forward svc/student-api-service 8080:80 -n student-api
 ### Upgrade after changes
 
 ```bash
-# local chart
-helm upgrade student-api helm/student-api
+# NOTE: when ArgoCD is running, never run helm upgrade manually
+# push to git and let ArgoCD handle it
 
-# remote chart
-helm repo update
-helm upgrade student-api student-api/student-api
+# only use this when ArgoCD is NOT installed
+helm upgrade student-api helm/student-api
 ```
 
 ### Uninstall
@@ -432,37 +424,17 @@ helm upgrade student-api student-api/student-api
 helm uninstall student-api
 ```
 
-## Customising Values
-
-All configurable values are in `helm/student-api/values.yaml`:
-
-```yaml
-app:
-  image:
-    tag: "v1.1.0"       # change image version
-  replicas: 2           # scale the API
-
-db:
-  database: students_db
-
-externalSecret:
-  refreshInterval: "1h" # how often ESO re-syncs from Vault
-```
-
 ## Publishing a New Chart Version
 
-When you update the chart, bump the version in `Chart.yaml` and republish:
-
 ```bash
-# 1. bump version in Chart.yaml (e.g. 0.1.0 → 0.2.0)
-
+# 1. bump version in Chart.yaml
 # 2. package
 helm package Kubernetes/helm/student-api
 
 # 3. move to docs/
 mv student-api-0.2.0.tgz docs/
 
-# 4. regenerate index (keeps all previous versions)
+# 4. regenerate index
 helm repo index docs/ --url https://jayanthnaidukundrapu.github.io/student-crud-api/
 
 # 5. push
@@ -473,9 +445,275 @@ git push origin master
 
 ---
 
+# GitOps Deployment (ArgoCD)
+
+ArgoCD watches the git repository and automatically syncs the cluster whenever `values.yaml` or helm templates change. No manual `helm upgrade` needed after initial setup.
+
+## How it works
+
+```txt
+Code merged to master
+        │
+        ▼
+GitHub Actions CI/CD pipeline
+  ├── lint and test (on PR only)
+  └── on merge:
+      ├── build Docker image (tag: sha-<git-sha>)
+      ├── push to Docker Hub
+      └── update Kubernetes/helm/student-api/values.yaml
+              │
+              ▼
+        ArgoCD detects values.yaml changed
+              │
+              ▼
+        helm upgrade runs automatically
+              │
+              ▼
+        new pods roll out with new image
+```
+
+## ArgoCD Setup
+
+ArgoCD runs in the `argocd` namespace on the `dependent_services` node (`minikube-m04`).
+
+### Install ArgoCD via Helm
+
+```bash
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo update
+
+kubectl create namespace argocd
+
+helm install argocd argo/argo-cd \
+  -n argocd \
+  -f Kubernetes/argocd/values.yaml
+```
+
+`Kubernetes/argocd/values.yaml` pins all ArgoCD components to `minikube-m04`:
+
+```yaml
+global:
+  nodeSelector:
+    type: dependent_services
+```
+
+Verify all pods are on `minikube-m04`:
+
+```bash
+kubectl get pods -n argocd -o wide
+# NODE column should show minikube-m04 for all pods
+```
+
+### Access ArgoCD UI
+
+```bash
+# port-forward in a separate terminal
+kubectl port-forward svc/argocd-server 8090:443 -n argocd
+
+# get admin password
+kubectl get secret argocd-initial-admin-secret \
+  -n argocd \
+  -o jsonpath='{.data.password}' | base64 -d
+```
+
+Open `https://localhost:8090` — username: `admin`, password from above.
+
+### Apply ArgoCD manifests (declarative)
+
+All ArgoCD resources are committed to git and applied declaratively:
+
+```bash
+kubectl apply -f Kubernetes/argocd/repository-secret.yaml
+kubectl apply -f Kubernetes/argocd/application.yaml
+```
+
+`repository-secret.yaml` — gives ArgoCD access to the GitHub repo.
+
+`application.yaml` — tells ArgoCD what to deploy:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: student-api
+  namespace: argocd
+spec:
+  source:
+    repoURL: https://github.com/JayanthNaiduKundrapu/student-crud-api
+    targetRevision: master
+    path: Kubernetes/helm/student-api
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: student-api
+  syncPolicy:
+    automated:
+      prune: true       # removes resources deleted from git
+      selfHeal: true    # reverts manual kubectl changes
+    syncOptions:
+      - CreateNamespace=true
+```
+
+Verify ArgoCD picked it up:
+
+```bash
+kubectl get application -n argocd
+# SYNC STATUS should be: Synced
+# HEALTH STATUS should be: Healthy
+```
+
+### After ArgoCD is running
+
+Still manual (always):
+
+```bash
+# vault secret (re-run after every vault pod restart)
+kubectl exec -it vault-0 -n vault -- sh
+vault kv put secret/student-api POSTGRES_PASSWORD=postgres
+exit
+
+# vault-token
+kubectl create secret generic vault-token \
+  --from-literal=VAULT_TOKEN=root \
+  -n student-api
+
+# force ESO sync
+kubectl annotate externalsecret student-api-secret \
+  force-sync=$(date +%s) \
+  --overwrite -n student-api
+```
+
+---
+
+# CI/CD Pipeline (GitHub Actions)
+
+## Flow
+
+```txt
+PR opened         →  lint-and-test only
+PR merged to master →  lint-and-test → build-push-deploy
+                                              │
+                                              ├── docker build + push (sha tag)
+                                              ├── update values.yaml image tag
+                                              └── git commit + push
+                                                        │
+                                                        ▼
+                                                  ArgoCD auto-deploys
+```
+
+## Pipeline setup
+
+The pipeline runs on a self-hosted runner (your Mac). Set it up at:
+```
+GitHub repo → Settings → Actions → Runners → New self-hosted runner
+```
+
+### Required GitHub secrets and variables
+
+| Name | Type | Value |
+|---|---|---|
+| `DOCKER_USERNAME` | Secret | Docker Hub username |
+| `DOCKER_PASSWORD` | Secret | Docker Hub password |
+| `GH_PAT` | Secret | GitHub Personal Access Token (repo scope) |
+| `DOCKER_IMAGE_NAME` | Variable | `student-api` |
+| `DATABASE_URL` | Variable | postgres URL for tests |
+
+### Create GH_PAT
+
+GitHub → Settings → Developer Settings → Personal Access Tokens → Tokens (classic) → `repo` scope.
+
+Add as repo secret named `GH_PAT`.
+
+## Workflow file `.github/workflows/ci-cd.yml`
+
+```yaml
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - app/**
+      - tests/**
+      - migrations/**
+      - '*.py'
+      - 'Makefile'
+      - 'entrypoint.sh'
+      - 'requirements.txt'
+      - 'Dockerfile'
+
+  push:
+    branches:
+      - master
+    paths:
+      - app/**
+      - migrations/**
+      - '*.py'
+      - 'Makefile'
+      - 'entrypoint.sh'
+      - 'requirements.txt'
+      - 'Dockerfile'
+
+jobs:
+  lint-and-test:
+    runs-on: self-hosted
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - run: make lint
+      - run: make docker-compose-up
+      - name: Run tests
+        env:
+          DATABASE_URL: ${{ vars.DATABASE_URL }}
+        run: make test
+
+  build-push-deploy:
+    runs-on: self-hosted
+    if: |
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/master' &&
+      github.actor != 'github-actions' &&
+      !startsWith(github.event.head_commit.message, 'ci:')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Build and push
+        run: |
+          TAG=sha-$(git rev-parse --short HEAD)
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME }}:$TAG .
+          docker push ${{ secrets.DOCKER_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME }}:$TAG
+
+      - name: Update values.yaml and push
+        run: |
+          sed -i '' '/^app:/,/^db:/ s/^\([[:space:]]*\)tag:.*/\1tag: "'"$TAG"'"/' Kubernetes/helm/student-api/values.yaml
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add Kubernetes/helm/student-api/values.yaml
+          git commit -m "ci: update image tag to $TAG"
+          git push origin master
+```
+
+## Important notes
+
+`github.actor != 'github-actions'` — prevents infinite loop when the bot commits `values.yaml` back to git.
+
+`!startsWith(github.event.head_commit.message, 'ci:')` — extra safety net, skips pipeline for bot commits.
+
+`sed -i ''` — macOS BSD sed syntax. On Linux use `sed -i` without the empty string.
+
+Image tag uses git SHA (`sha-abc1234`) not a fixed tag — ArgoCD detects the change in `values.yaml` and redeploys.
+
+---
+
 # Secret Management — How It Works
 
-Secrets are never hardcoded in any YAML file or committed to git. They live in Vault and are synced into the cluster automatically by ESO.
+Secrets are never hardcoded in any YAML file or committed to git.
 
 ```txt
 HashiCorp Vault
@@ -500,23 +738,67 @@ HashiCorp Vault
 
 | Step | How |
 |---|---|
-| Install Vault, ESO | `helm install` (one time) |
+| Install Vault, ESO, ArgoCD | `helm install` (one time) |
 | Write secret into Vault | Manual — `vault kv put` inside vault pod |
 | Create `vault-token` K8s secret | Manual — `kubectl create secret` |
-| SecretStore, ExternalSecret | Helm (automated) |
+| SecretStore, ExternalSecret | Helm via ArgoCD (automated) |
 | K8s Secret creation | ESO (automated) |
 | Secret rotation | ESO re-syncs on `refreshInterval` |
+| New image deployment | ArgoCD (automated after CI push) |
 
-> **Production note:** replace static token auth with Kubernetes auth so no token needs to be stored anywhere. See ESO docs for setup.
+> **Production note:** replace static token auth with Kubernetes auth so no token needs to be stored anywhere.
 
-## Troubleshooting
+---
+
+# Troubleshooting
+
+## Pods
+
+| Symptom | What to check |
+|---|---|
+| `CreateContainerConfigError` | Secret missing — `kubectl get secrets -n student-api` |
+| `CrashLoopBackOff` | Check logs — `kubectl logs <pod> -n student-api` |
+| `Init:0/1` stuck | Init container waiting — `kubectl logs <pod> -n student-api -c migrate-db` |
+| `students` table does not exist | Migrations not in image — check `ls migrations/versions/` |
+| Pod on wrong node | Check nodeSelector in values.yaml and node labels |
+
+## ESO / Vault
 
 | Symptom | What to check |
 |---|---|
 | SecretStore `InvalidProvider` | Vault URL wrong — `kubectl get svc -n vault` |
+| SecretStore `vault-token not found` | Create vault-token — `kubectl create secret generic vault-token ...` |
 | ExternalSecret `SecretSyncedError` | Vault path missing — exec into vault pod and run `vault kv get secret/student-api` |
 | ExternalSecret not re-syncing | Force sync — `kubectl annotate externalsecret student-api-secret force-sync=$(date +%s) --overwrite -n student-api` |
-| Pod `CrashLoopBackOff` | Secret not mounted — `kubectl describe pod <name> -n student-api` |
-| `no matches for kind SecretStore` | ESO not installed — `kubectl get pods -n external-secrets` |
-| `students` table does not exist | Postgres not ready when migrations ran — check pod logs |
+| `no matches for kind SecretStore` | ESO not installed or wrong API version — check `helm list -n external-secrets` |
+| ESO v2.5+ `unknown field auth.token` | Use `tokenSecretRef` not `token` |
+| ESO `apiVersion: v1beta1` error | Use `apiVersion: external-secrets.io/v1` for ESO v2.5+ |
+
+## Helm
+
+| Symptom | What to check |
+|---|---|
 | `helm install` 404 error | index.yaml has wrong URL — regenerate with correct GitHub Pages URL |
+| `cannot reuse a name` | Already installed — `helm uninstall student-api` first |
+| `CRD already exists` error | Leftover from previous install — `kubectl delete crd <name>` |
+| YAML parse error line 20 | nodeSelector template syntax — use `{{- toYaml .Values.x.nodeSelector \| nindent 8 }}` |
+| `conflict with argocd-controller` | Don't run `helm upgrade` manually when ArgoCD is installed — push to git instead |
+
+## ArgoCD
+
+| Symptom | What to check |
+|---|---|
+| App `OutOfSync` | ArgoCD detected drift — click Sync in UI or wait for auto-sync |
+| App `Degraded` | Pods unhealthy — `kubectl get pods -n student-api` |
+| ArgoCD not picking up changes | Check poll interval — default 3 mins, or push a webhook |
+| Bot commits triggering pipeline loop | Check `github.actor` condition and commit message filter in workflow |
+| `git push` rejected after bot commit | `git pull origin master --no-rebase` then push |
+
+## CI/CD
+
+| Symptom | What to check |
+|---|---|
+| Pipeline not triggering | Changed file not in `paths` filter |
+| `sed` error on Mac | Use `sed -i ''` not `sed -i` |
+| Pipeline loops infinitely | Bot actor name mismatch — check `git log --format="%an"` |
+| `git push` rejected in pipeline | Remote has new commits — add `git pull` before push in workflow |
