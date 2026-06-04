@@ -14,7 +14,7 @@ on:
       - 'requirements.txt'
       - 'Dockerfile'
       - 'docker-compose.yml'
-      - 'ci-cd.yml'
+      - '.github/workflows/ci-cd.yml'
 
   push:
     branches:
@@ -27,7 +27,7 @@ on:
       - 'entrypoint.sh'
       - 'requirements.txt'
       - 'Dockerfile'
-      - 'ci-cd.yml'
+      - '.github/workflows/ci-cd.yml'
 
 jobs:
   lint-and-test:
