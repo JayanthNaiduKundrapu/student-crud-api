@@ -1,0 +1,38 @@
+# pin everything to dependent_services node
+global:
+  nodeSelector:
+    type: dependent_services
+
+prometheus:
+  prometheusSpec:
+    nodeSelector:
+      type: dependent_services
+    # scrape interval
+    scrapeInterval: 15s
+    # allow prometheus to scrape all namespaces
+    podMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+
+grafana:
+  nodeSelector:
+    type: dependent_services
+  # default admin password
+  adminPassword: admin
+  # add loki as additional data source
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki.observability.svc.cluster.local:3100
+      access: proxy
+
+alertmanager:
+  alertmanagerSpec:
+    nodeSelector:
+      type: dependent_services
+
+kube-state-metrics:
+  nodeSelector:
+    type: dependent_services
+
+nodeExporter:
+  enabled: true  # runs on ALL nodes as DaemonSet — intentional
