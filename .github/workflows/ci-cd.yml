@@ -49,6 +49,9 @@ jobs:
       - name: Run docker compose
         run: make docker-compose-up
 
+      - name: Install dependencies
+        run: make install
+      
       - name: Run tests
         env:
           DATABASE_URL: ${{ vars.DATABASE_URL }}
