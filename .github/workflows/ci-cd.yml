@@ -56,6 +56,9 @@ jobs:
         env:
           DATABASE_URL: ${{ vars.DATABASE_URL }}
         run: make test
+      
+      - name: Docker compose down
+        run: make docker-compose-down
 
   build-push-deploy:
     runs-on: self-hosted

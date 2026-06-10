@@ -39,7 +39,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/students_db
     command: >
-      sh -c "until python3 -c 'import socket; s=socket.create_connection((\"db\", 5432), timeout=1)' 2>/dev/null; do sleep 1; done; flask db migrate && flask db upgrade"
+      sh -c "until python3 -c 'import socket; s=socket.create_connection((\"db\", 5432), timeout=1)' 2>/dev/null; do sleep 1; done; flask db upgrade"
     depends_on:
       - db
     networks:
