@@ -19,6 +19,10 @@ kind: Service
 metadata:
   name: student-api-service
   namespace: {{ .Values.namespace }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ .Values.app.port }}"
+    prometheus.io/path: "/metrics"
 spec:
   selector:
     app: {{ .Values.app.name }}

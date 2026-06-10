@@ -1,4 +1,5 @@
 from flask import Flask, jsonify
+from prometheus_flask_exporter import PrometheusMetrics
 from .config import Config
 from .extensions import db, migrate
 from .routes.student_routes import student_bp
@@ -7,6 +8,8 @@ from .routes.student_routes import student_bp
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    PrometheusMetrics(app)
 
     db.init_app(app)
     migrate.init_app(app, db)

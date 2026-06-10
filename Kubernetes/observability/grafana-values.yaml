@@ -1,0 +1,21 @@
+nodeSelector:
+  type: dependent_services    # run on minikube-m04
+
+adminPassword: admin          # UI login password
+
+persistence:
+  enabled: false              # no persistent storage for dev
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-server.observability.svc.cluster.local:80
+        access: proxy
+        isDefault: true       # default data source
+      - name: Loki
+        type: loki
+        url: http://loki.observability.svc.cluster.local:3100
+        access: proxy

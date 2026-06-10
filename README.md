@@ -802,3 +802,41 @@ HashiCorp Vault
 | `sed` error on Mac | Use `sed -i ''` not `sed -i` |
 | Pipeline loops infinitely | Bot actor name mismatch — check `git log --format="%an"` |
 | `git push` rejected in pipeline | Remote has new commits — add `git pull` before push in workflow |
+
+
+# Observability
+
+```txt
+1. Prometheus    ← scrapes metrics, stores them
+2. Grafana       ← UI to visualize metrics
+3. Node Exporter ← hardware metrics from nodes
+4. Kube State Metrics ← K8s object metrics
+5. Loki          ← log storage
+6. Promtail      ← log collector
+7. Postgres Exporter  ← DB metrics
+8. Blackbox Exporter  ← endpoint uptime
+
+```
+
+## Prometheus
+
+Prometheus
+  │
+  ├── scrapes → your Flask app (/metrics)
+  ├── scrapes → postgres exporter (/metrics)
+  ├── scrapes → node exporter (/metrics)
+  └── scrapes → blackbox exporter (/metrics)
+
+Stores all numbers with timestamps.
+You query later: "what was CPU at 3pm?"
+
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+
+# see all configurable values
+helm show values prometheus-community/prometheus | less
+
+
+
+
+

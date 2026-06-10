@@ -1,0 +1,274 @@
+# 🐐 Loki — Logs (not numbers, but stories)
+
+## What problem Loki solves
+
+If Prometheus tells you:
+
+```text
+cpu=90%
+requests=1000
+```
+
+Loki tells you:
+
+```text
+User login failed
+Database timeout
+Payment service crashed
+```
+
+👉 Prometheus = numbers
+👉 Loki = text (logs)
+
+---
+
+# 🏗️ Loki Architecture (Skeleton)
+
+```text
+Applications (generate logs)
+        │
+        ▼
+Log Agent (Promtail / Alloy)
+        │
+        ▼
+Loki (ingest + store)
+        │
+ ┌──────┼────────┐
+ ▼      ▼        ▼
+Index  Store   Query Engine
+                │
+                ▼
+             Grafana
+```
+
+---
+
+# 🐐 Goat Story Version
+
+* Apps = animals talking all day
+* Logs = everything they say
+* Promtail = goat collecting diaries
+* Loki = library storing diaries
+* Grafana = reading room
+
+---
+
+# 🧾 1. Logs (What apps produce)
+
+Example:
+
+```text
+2026-06-05 INFO User logged in
+2026-06-05 ERROR Payment failed
+2026-06-05 WARN DB latency high
+```
+
+👉 Just text lines
+
+---
+
+# 📦 2. Log Agent (Promtail / Alloy)
+
+This is the collector.
+
+### Old way:
+
+* Promtail
+
+### Modern way:
+
+* Grafana Alloy
+
+It:
+
+* reads logs from files / containers
+* adds labels
+* ships to Loki
+
+```text
+App logs → Promtail → Loki
+```
+
+---
+
+# 🚚 3. Distributor (Loki)
+
+First stop inside Loki.
+
+Responsibilities:
+
+* receive logs
+* balance load
+* send to ingesters
+
+```text
+Agent → Distributor
+```
+
+---
+
+# 🧠 4. Ingester (VERY IMPORTANT)
+
+This is Loki’s memory.
+
+It:
+
+* stores logs temporarily in RAM
+* groups logs into chunks
+* prepares for storage
+
+```text
+Logs → memory chunks
+```
+
+---
+
+# 💾 5. Object Storage (MAIN STORAGE)
+
+Logs are stored in cheap storage:
+
+* S3
+* GCS
+* Azure Blob
+
+```text
+Loki → Object Storage
+```
+
+👉 This is why Loki is cheap.
+
+---
+
+# 🧾 6. Index (IMPORTANT DIFFERENCE)
+
+Unlike Elasticsearch:
+
+❌ Loki does NOT index full logs
+✔ Loki indexes ONLY labels
+
+Example:
+
+```text
+namespace="prod"
+pod="api"
+level="error"
+```
+
+👉 That’s it.
+
+Not the log content.
+
+---
+
+# 🔎 7. Query Engine
+
+When you search logs:
+
+```text
+{pod="api"} |= "error"
+```
+
+Loki:
+
+* finds matching chunks
+* filters logs
+* returns results
+
+---
+
+# ⚡ 8. Query Frontend (Optional but common)
+
+Improves performance:
+
+* splits big queries
+* caches results
+* parallel execution
+
+---
+
+# 📊 Loki Query Language
+
+Called **LogQL**
+
+Examples:
+
+```logql
+{app="api"}
+
+{app="api"} |= "error"
+
+rate({app="api"}[5m])
+```
+
+---
+
+# 🔗 How Loki fits with Grafana
+
+```text
+Grafana → Loki → logs displayed
+```
+
+You can:
+
+* search logs
+* filter logs
+* correlate with metrics
+
+---
+
+# 🧭 FULL LOKI FLOW
+
+```text
+App
+ │
+ ▼
+Logs
+ │
+ ▼
+Promtail / Alloy
+ │
+ ▼
+Loki Distributor
+ │
+ ▼
+Ingester
+ │
+ ▼
+Object Storage
+ │
+ ▼
+Query Engine
+ │
+ ▼
+Grafana
+```
+
+---
+
+# 🐐 10-SECOND MEMORY VERSION
+
+Loki =
+
+```text
+Collect logs → label them → store cheaply → query via labels
+```
+
+---
+
+# 🆚 PROMETHEUS vs LOKI
+
+```text
+Prometheus = numbers (metrics)
+Loki       = text (logs)
+```
+
+Same idea:
+
+```text
+both:
+collect → store → query → visualize
+```
+
+But different data type.
+
+
