@@ -1,0 +1,10 @@
+nodeSelector:
+  type: dependent_services
+
+prometheus:
+  monitor:
+    enabled: false
+service:
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"

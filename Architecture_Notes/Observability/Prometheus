@@ -1,0 +1,456 @@
+# 🐐 PROMETHEUS — Goat Version
+
+## What problem is Prometheus solving?
+
+Imagine you own a farm.
+
+You ask:
+
+```text
+How much grass is each cow eating?
+How much water is each cow drinking?
+How many eggs are chickens laying?
+```
+
+You want numbers over time.
+
+```text
+10:00 -> 100 eggs
+11:00 -> 120 eggs
+12:00 -> 140 eggs
+```
+
+Prometheus is a giant notebook that stores those numbers.
+
+---
+
+# Architecture Overview
+
+```text
+Animals
+   │
+   ▼
+Metrics
+   │
+   ▼
+Prometheus
+   │
+   ▼
+Storage
+   │
+   ▼
+Queries
+   │
+   ▼
+Graphs / Alerts
+```
+
+---
+
+# Component 1: The Animals (Applications)
+
+Every app is an animal.
+
+```text
+🐄 Payment Service
+🐔 User Service
+🐖 Database
+```
+
+Each animal knows things about itself.
+
+Example:
+
+```text
+I handled 100 requests
+I use 2GB RAM
+I am 30% CPU busy
+```
+
+---
+
+# Component 2: Metrics Endpoint
+
+Each animal hangs a sign outside.
+
+```text
+/metrics
+```
+
+Prometheus reads the sign.
+
+Example sign:
+
+```text
+http_requests_total 1000
+memory_usage_bytes 2000000
+```
+
+Think:
+
+```text
+🐄
+ │
+ └── sign with numbers
+```
+
+---
+
+# Component 3: Service Discovery
+
+Now the goat has a problem.
+
+How does it know which animals exist?
+
+```text
+Farm has 1000 animals.
+```
+
+It needs a map.
+
+In Kubernetes, that map comes from:
+
+```text
+Pods
+Services
+Endpoints
+```
+
+and often:
+
+```text
+ServiceMonitor
+PodMonitor
+```
+
+---
+
+## ServiceMonitor
+
+A note saying:
+
+```text
+Watch all cows labeled:
+app=payment
+```
+
+---
+
+## PodMonitor
+
+A note saying:
+
+```text
+Watch these pods directly
+```
+
+Both are just instructions for discovery.
+
+---
+
+# Component 4: Scraping
+
+The goat walks around.
+
+Every 15 seconds:
+
+```text
+🐐 -> Cow
+"What are your numbers?"
+```
+
+Reads:
+
+```text
+requests=1000
+cpu=20
+```
+
+Writes them down.
+
+This is called:
+
+## Scraping
+
+Prometheus uses:
+
+```text
+GET /metrics
+```
+
+to fetch data.
+
+Important:
+
+```text
+Prometheus pulls.
+```
+
+Applications do not push.
+
+---
+
+# Component 5: Labels
+
+This is where Prometheus becomes powerful.
+
+Without labels:
+
+```text
+cpu=20
+```
+
+Not useful.
+
+With labels:
+
+```text
+cpu{
+  pod="payment-1",
+  namespace="prod"
+}
+```
+
+Now you know exactly whose CPU it is.
+
+Think:
+
+```text
+Cow
+Color=Brown
+Field=North
+Owner=Bob
+```
+
+Those tags are labels.
+
+---
+
+# Component 6: TSDB (Storage)
+
+After scraping:
+
+```text
+10:00 cpu=20
+10:01 cpu=25
+10:02 cpu=30
+```
+
+Prometheus stores:
+
+```text
+timestamp
+metric
+labels
+value
+```
+
+This storage engine is called:
+
+## TSDB
+
+(Time Series Database)
+
+Because data changes over time.
+
+---
+
+# Component 7: PromQL
+
+Now farmer asks:
+
+```text
+Average CPU today?
+```
+
+Prometheus needs a language.
+
+That's:
+
+## PromQL
+
+Examples:
+
+```text
+cpu_usage
+```
+
+```text
+avg(cpu_usage)
+```
+
+```text
+sum(memory_usage)
+```
+
+PromQL is SQL for metrics.
+
+---
+
+# Component 8: Recording Rules
+
+Suppose farmer asks:
+
+```text
+Average CPU
+```
+
+10,000 times.
+
+Prometheus gets tired.
+
+So it calculates once:
+
+```text
+avg_cpu = 25
+```
+
+and stores it.
+
+This is:
+
+## Recording Rule
+
+Precomputed metrics.
+
+---
+
+# Component 9: Alert Rules
+
+Farmer wants:
+
+```text
+Tell me if CPU > 90%
+```
+
+Prometheus continuously checks.
+
+```text
+CPU = 95
+```
+
+Alert fires.
+
+---
+
+# Component 10: Alertmanager
+
+Prometheus detects the problem.
+
+But who sends the message?
+
+That's Alertmanager.
+
+```text
+Prometheus
+     │
+     ▼
+Alertmanager
+```
+
+Alertmanager says:
+
+```text
+Send Slack
+Send Email
+Send PagerDuty
+```
+
+---
+
+# Component 11: Remote Write
+
+Prometheus storage is local.
+
+Eventually disk fills.
+
+So Prometheus can forward metrics.
+
+```text
+Prometheus
+      │
+      ▼
+Remote Write
+      │
+      ▼
+Long-term storage
+```
+
+Examples:
+
+* Thanos
+* Mimir
+* Cortex
+
+---
+
+# Prometheus Operator (Kubernetes Only)
+
+This is not Prometheus itself.
+
+It's the farm manager.
+
+```text
+👨‍🌾 Operator
+```
+
+It manages:
+
+```text
+Prometheus
+Alertmanager
+ServiceMonitor
+PodMonitor
+PrometheusRule
+```
+
+Instead of manually configuring Prometheus.
+
+---
+
+# Complete Goat Diagram
+
+```text
+Application
+     │
+     ▼
+/metrics
+     │
+     ▼
+ServiceMonitor / PodMonitor
+     │
+     ▼
+Prometheus Operator
+     │
+     ▼
+Prometheus
+     │
+ ┌───┼────┐
+ │   │    │
+ ▼   ▼    ▼
+TSDB Rules Alerts
+          │
+          ▼
+    Alertmanager
+```
+
+---
+
+# The 10-second Goat Summary
+
+Prometheus is:
+
+```text
+Discover targets
+      ↓
+Scrape metrics
+      ↓
+Store metrics
+      ↓
+Query metrics
+      ↓
+Alert on metrics
+```
+
+Everything else is supporting machinery.
+

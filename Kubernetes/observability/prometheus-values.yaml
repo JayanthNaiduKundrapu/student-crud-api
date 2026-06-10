@@ -1,0 +1,47 @@
+server:
+  nodeSelector:
+    type: dependent_services    # run on minikube-m04
+
+  persistentVolume:
+    enabled: false              # no persistent storage for learning
+
+  global:
+    scrape_interval: 15s        # scrape every 15 seconds
+    evaluation_interval: 15s    # evaluate alert rules every 15 seconds
+
+alertmanager:
+  enabled: false                # we'll install this separately later
+
+pushgateway:
+  enabled: false                # not needed for our setup
+
+# kube-state-metrics comes bundled — disable, we'll install separately
+kube-state-metrics:
+  enabled: false
+
+serverFiles:
+  prometheus.yml:
+    scrape_configs:
+
+      - job_name: blackbox
+
+        metrics_path: /probe
+
+        params:
+          module: [http_2xx]
+
+        static_configs:
+          - targets:
+              - http://student-api-service.student-api.svc.cluster.local/healthcheck
+              - http://argocd-server.argocd.svc.cluster.local/login
+              - http://vault.vault.svc.cluster.local:8200
+
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+
+          - source_labels: [__param_target]
+            target_label: instance
+
+          - target_label: __address__
+            replacement: blackbox-exporter-prometheus-blackbox-exporter.observability.svc.cluster.local:9115
