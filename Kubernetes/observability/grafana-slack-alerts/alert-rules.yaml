@@ -265,7 +265,7 @@ groups:
               datasourceUid: PBFA97CFB590B2093
               model:
                 editorMode: code
-                expr: flask_http_request_total
+                expr: sum(rate(flask_http_request_total[5m]))
                 instant: true
                 intervalMs: 1000
                 legendFormat: __auto
@@ -278,7 +278,7 @@ groups:
                 conditions:
                     - evaluator:
                         params:
-                            - 10000
+                            - 5
                         type: gt
                       operator:
                         type: and
@@ -412,7 +412,64 @@ groups:
               datasourceUid: PBFA97CFB590B2093
               model:
                 editorMode: code
-                expr: flask_http_request_duration_seconds_sum
+                expr: |-
+                    histogram_quantile(
+                      0.90,
+                      sum(rate(flask_http_request_duration_seconds_bucket[5m])) by (le)
+                    )
+                instant: true
+                intervalMs: 1000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: C
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 0.5
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          noDataState: NoData
+          execErrState: Error
+          for: 1m
+          isPaused: false
+          notification_settings:
+            receiver: slack-alerts
+        - uid: cfoknqj0rknpcf
+          title: p95 Latency
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: PBFA97CFB590B2093
+              model:
+                editorMode: code
+                expr: |-
+                    histogram_quantile(
+                      0.95,
+                      sum(rate(flask_http_request_duration_seconds_bucket[5m])) by (le)
+                    )
                 instant: true
                 intervalMs: 1000
                 legendFormat: __auto
@@ -450,8 +507,8 @@ groups:
           isPaused: false
           notification_settings:
             receiver: slack-alerts
-        - uid: cfoknqj0rknpcf
-          title: p95 Latency
+        - uid: cfoknt6hddlogb
+          title: p99 Latency
           condition: C
           data:
             - refId: A
@@ -461,7 +518,11 @@ groups:
               datasourceUid: PBFA97CFB590B2093
               model:
                 editorMode: code
-                expr: flask_http_request_duration_seconds_sum
+                expr: |-
+                    histogram_quantile(
+                      0.99,
+                      sum(rate(flask_http_request_duration_seconds_bucket[5m])) by (le)
+                    )
                 instant: true
                 intervalMs: 1000
                 legendFormat: __auto
@@ -475,55 +536,6 @@ groups:
                     - evaluator:
                         params:
                             - 2
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                            - C
-                      reducer:
-                        params: []
-                        type: last
-                      type: query
-                datasource:
-                    type: __expr__
-                    uid: __expr__
-                expression: A
-                intervalMs: 1000
-                maxDataPoints: 43200
-                refId: C
-                type: threshold
-          noDataState: NoData
-          execErrState: Error
-          for: 1m
-          isPaused: false
-          notification_settings:
-            receiver: slack-alerts
-        - uid: cfoknt6hddlogb
-          title: p99 Latency
-          condition: C
-          data:
-            - refId: A
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: PBFA97CFB590B2093
-              model:
-                editorMode: code
-                expr: flask_http_request_duration_seconds_sum
-                instant: true
-                intervalMs: 1000
-                legendFormat: __auto
-                maxDataPoints: 43200
-                range: false
-                refId: A
-            - refId: C
-              datasourceUid: __expr__
-              model:
-                conditions:
-                    - evaluator:
-                        params:
-                            - 3
                         type: gt
                       operator:
                         type: and
