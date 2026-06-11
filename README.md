@@ -818,17 +818,91 @@ HashiCorp Vault
 
 ```
 
-## Prometheus
+# Architecture
 
-Prometheus
-  │
-  ├── scrapes → your Flask app (/metrics)
-  ├── scrapes → postgres exporter (/metrics)
-  ├── scrapes → node exporter (/metrics)
-  └── scrapes → blackbox exporter (/metrics)
+## File Structure
 
-Stores all numbers with timestamps.
-You query later: "what was CPU at 3pm?"
+```txt
+observability/
+├── grafana-dashboards/
+    ├── ......
+├── grafana-slack-alerts/
+    ├── ......
+├── prometheus-values.yaml
+├── loki-values.yaml
+├── promtail-values.yaml
+├── postgres-exporter-values.yaml
+├── kube-state-metrics-values.yaml
+├── grafana-values.yaml
+├── blackbox-values.yaml
+
+```
+
+## Metrics Flow
+
+```txt
+
+   Application 
+     │
+     ▼
+Postgres Exporter ─────┐
+                       │
+kube-state-metrics ────┤
+                       │
+Node Exporter ─────────┤
+                       │
+Blackbox Exporter ─────┤
+                       ▼
+                 Prometheus
+                       │
+                       ▼
+                    Grafana
+
+```
+
+Prometheus scrapes the targets we've configured. (used annotation based)
+
+Grafana is used for visualization of metrics and logs.
+Configured Data sources : Prometheus, Loki
+
+Loki is a log aggregation system.
+Promtail runs as a DaemonSet and collects logs from Kubernetes nodes.
+(we are only collecting logs from the application namespace)
+Promtail collects and forwards the logs to loki
+
+PostgreSQL Exporter
+PostgreSQL does not expose Prometheus metrics by default.
+A PostgreSQL Exporter was deployed to expose database metrics.
+
+kube-state-metrics
+kube-state-metrics exposes information about Kubernetes resources.
+(pods, deployments, nodes etc..)
+
+Node Exporter
+Node Exporter exposes host-level metrics.
+(cpu usage, disk usage, memory usage, network stats)
+
+Blackbox Exporter
+Blackbox Exporter is used to monitor endpoint availability, latency, and HTTP responses.
+
+## Logs Flow
+
+```txt
+
+Application Pods
+       │
+       ▼
+    Promtail
+       │
+       ▼
+      Loki
+       │
+       ▼
+    Grafana
+
+```
+
+
 
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
@@ -837,6 +911,76 @@ helm repo update
 helm show values prometheus-community/prometheus | less
 
 
+# Setup
+
+```bash
+kubectl create namespace observability
+
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+helm install prometheus prometheus-community/prometheus \
+  -n observability \
+  -f prometheus-values.yaml
+
+kubectl port-forward svc/prometheus-server \
+  -n observability \
+  9090:80
 
 
 
+helm repo add grafana https://grafana.github.io/helm-charts
+
+helm install grafana grafana/grafana \
+  -n observability \
+  -f grafana-values.yaml
+
+kubectl port-forward svc/grafana \
+  -n observability \
+  3000:80
+
+kubectl get secret grafana \
+  -n observability \
+  -o jsonpath="{.data.admin-password}" | base64 -d
+
+
+
+helm repo add grafana https://grafana.github.io/helm-charts
+
+helm install loki grafana/loki \
+  -n observability \
+  -f loki-values.yaml
+
+
+
+helm install promtail grafana/promtail \
+  -n observability \
+  -f promtail-values.yaml
+
+
+
+helm install postgres-exporter \
+  prometheus-community/prometheus-postgres-exporter \
+  -n observability \
+  -f postgres-exporter-values.yaml
+
+
+
+helm install kube-state-metrics \
+  prometheus-community/kube-state-metrics \
+  -n observability \
+  -f kube-state-metrics-values.yaml
+
+
+
+helm install blackbox-exporter \
+  prometheus-community/prometheus-blackbox-exporter \
+  -n observability \
+  -f blackbox-values.yaml
+
+
+
+
+helm upgrade prometheus prometheus-community/prometheus \
+  -n observability \
+  -f prometheus-values.yaml
+```
