@@ -9,7 +9,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    PrometheusMetrics(app)
+    PrometheusMetrics(app) # Initialize Prometheus metrics for monitoring
 
     db.init_app(app)
     migrate.init_app(app, db)
