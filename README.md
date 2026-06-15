@@ -1,6 +1,6 @@
 # Student CRUD REST API
 
-A Flask REST API for managing student records, with support for local development, Docker, bare metal, Kubernetes, Helm, and GitOps deployments via ArgoCD. Secrets are managed via HashiCorp Vault and External Secrets Operator.
+A Flask REST API for managing student records, with support for local development, Docker, bare metal, Kubernetes, Helm, GitOps deployments via ArgoCD, and full observability via Prometheus, Loki, and Grafana.
 
 ## Features
 
@@ -15,6 +15,7 @@ A Flask REST API for managing student records, with support for local developmen
 - Secret management via HashiCorp Vault + ESO
 - GitOps deployments via ArgoCD
 - CI/CD pipeline via GitHub Actions with self-hosted runner
+- Observability via Prometheus, Grafana, Loki, Promtail
 
 ## Tech Stack
 
@@ -24,6 +25,7 @@ A Flask REST API for managing student records, with support for local developmen
 - Kubernetes, Helm
 - HashiCorp Vault, External Secrets Operator
 - ArgoCD, GitHub Actions
+- Prometheus, Grafana, Loki, Promtail
 
 ## API Endpoints
 
@@ -64,21 +66,29 @@ student-crud-api/
 │   ├── namespace/
 │   │   └── namespace.yml
 │   ├── argocd/
-│   │   ├── values.yaml          # nodeSelector for dependent_services node
-│   │   ├── application.yaml     # ArgoCD Application manifest
+│   │   ├── values.yaml
+│   │   ├── application.yaml
 │   │   └── repository-secret.yaml
-│   └── helm/
-│       └── student-api/
-│           ├── Chart.yaml
-│           ├── values.yaml
-│           └── templates/
-│               ├── namespace.yaml
-│               ├── configmap.yaml
-│               ├── deployment.yaml
-│               ├── service.yaml
-│               ├── secret-store.yaml
-│               └── external-secret.yaml
-├── docs/                        # Helm chart repository (served via GitHub Pages)
+│   ├── helm/
+│   │   └── student-api/
+│   │       ├── Chart.yaml
+│   │       ├── values.yaml
+│   │       └── templates/
+│   │           ├── namespace.yaml
+│   │           ├── configmap.yaml
+│   │           ├── deployment.yaml
+│   │           ├── service.yaml
+│   │           ├── secret-store.yaml
+│   │           └── external-secret.yaml
+│   └── observability/
+│       ├── prometheus-values.yaml
+│       ├── grafana-values.yaml
+│       ├── loki-values.yaml
+│       ├── promtail-values.yaml
+│       ├── postgres-exporter-values.yaml
+│       ├── kube-state-metrics-values.yaml
+│       └── blackbox-values.yaml
+├── docs/
 │   ├── index.yaml
 │   └── student-api-0.1.0.tgz
 ├── .github/
@@ -153,8 +163,6 @@ Open at `http://127.0.0.1:5000`.
 
 ### Run with Docker Compose (recommended)
 
-Starts Flask + PostgreSQL together:
-
 ```bash
 docker compose up --build
 ```
@@ -162,8 +170,6 @@ docker compose up --build
 API available at `http://127.0.0.1:5000`.
 
 ### Run with Dockerfile only
-
-Only use this if PostgreSQL is already running and reachable:
 
 ```bash
 docker run --rm -p 5000:5000 \
@@ -197,12 +203,6 @@ API 1    API 2
 
 Test at `http://localhost:8080/healthcheck`.
 
-> **Debug tip:** verify container connectivity using Python:
-> ```python
-> import socket
-> socket.gethostbyname("db")
-> ```
-
 ---
 
 # Kubernetes Deployment (Raw Manifests)
@@ -210,16 +210,13 @@ Test at `http://localhost:8080/healthcheck`.
 ## Cluster Setup
 
 ```bash
-# start a 4-node cluster
 minikube start --nodes 4 --driver=docker
 kubectl get nodes
 
-# label worker nodes
 kubectl label node minikube-m02 type=application
 kubectl label node minikube-m03 type=database
 kubectl label node minikube-m04 type=dependent_services
 
-# verify
 kubectl get nodes --show-labels
 ```
 
@@ -237,16 +234,12 @@ helm install vault hashicorp/vault \
   --set "server.dev.enabled=true"
 
 kubectl get pods -n vault
-# vault-0 should be Running
 ```
 
 ### Write secrets into Vault
 
 ```bash
-# exec into the vault pod
 kubectl exec -it vault-0 -n vault -- sh
-
-# VAULT_ADDR and VAULT_TOKEN are already set in dev mode
 vault kv put secret/student-api POSTGRES_PASSWORD=postgres
 vault kv get secret/student-api
 exit
@@ -264,18 +257,15 @@ helm install external-secrets external-secrets/external-secrets \
   -n external-secrets \
   --create-namespace \
   --wait
-
-kubectl get pods -n external-secrets
 ```
 
-## Deploy with Raw Manifests
+## Deploy
 
 ```bash
 cd Kubernetes
 
 kubectl apply -f namespace/namespace.yml
 
-# create vault-token secret (always manual — never commit this)
 kubectl create secret generic vault-token \
   --from-literal=VAULT_TOKEN=root \
   -n student-api
@@ -299,74 +289,24 @@ kubectl get secrets -n student-api
 
 ```bash
 kubectl port-forward svc/student-api-service 8080:80 -n student-api
-# test at http://localhost:8080/healthcheck
-```
-
-### Debug
-
-```bash
-kubectl describe pod <pod-name> -n student-api
-kubectl exec -it <pod-name> -n student-api -- sh
-env | grep POSTGRES
 ```
 
 ---
 
 # Kubernetes Deployment (Helm)
 
-Helm packages all K8s resources into a single chart. One command replaces all the `kubectl apply` steps.
-
-## Helm Chart Structure
-
-```txt
-helm/student-api/
-├── Chart.yaml        # chart metadata
-├── values.yaml       # all configurable values
-└── templates/        # templated K8s manifests
-    ├── namespace.yaml
-    ├── configmap.yaml
-    ├── deployment.yaml  # includes init container for migrations
-    ├── service.yaml
-    ├── secret-store.yaml
-    └── external-secret.yaml
-```
-
-## Option A — Install from Local Chart
-
-### Prerequisites
-
-```bash
-# 1. install vault
-helm install vault hashicorp/vault \
-  -n vault --create-namespace \
-  --set "server.dev.enabled=true"
-
-# 2. write secret into vault
-kubectl exec -it vault-0 -n vault -- sh
-vault kv put secret/student-api POSTGRES_PASSWORD=postgres
-exit
-
-# 3. install ESO
-helm install external-secrets external-secrets/external-secrets \
-  -n external-secrets --create-namespace --wait
-```
-
-### Install
+## Option A — Local Chart
 
 ```bash
 cd Kubernetes
 
-# dry run first
 helm lint helm/student-api
 helm template student-api helm/student-api
-
-# install
 helm install student-api helm/student-api
 ```
 
-## Option B — Install from Remote Chart Repository
+## Option B — Remote Chart Repository
 
-The chart is published at:
 ```
 https://jayanthnaidukundrapu.github.io/student-crud-api/
 ```
@@ -374,70 +314,28 @@ https://jayanthnaidukundrapu.github.io/student-crud-api/
 ```bash
 helm repo add student-api https://jayanthnaidukundrapu.github.io/student-crud-api/
 helm repo update
-helm search repo student-api
 helm install student-api student-api/student-api
 ```
 
-## After Install (both options)
+## After Install
 
 ```bash
-# create vault-token secret (always manual — never commit this)
 kubectl create secret generic vault-token \
   --from-literal=VAULT_TOKEN=root \
   -n student-api
 
-# force ESO to sync immediately
 kubectl annotate externalsecret student-api-secret \
   force-sync=$(date +%s) \
   --overwrite -n student-api
-```
-
-### Verify
-
-```bash
-kubectl get pods -n student-api -w
-kubectl get secretstore -n student-api       # should be: Valid
-kubectl get externalsecret -n student-api    # should be: SecretSynced
-kubectl get secrets -n student-api
-```
-
-### Access the API
-
-```bash
-kubectl port-forward svc/student-api-service 8080:80 -n student-api
-# test at http://localhost:8080/healthcheck
-```
-
-### Upgrade after changes
-
-```bash
-# NOTE: when ArgoCD is running, never run helm upgrade manually
-# push to git and let ArgoCD handle it
-
-# only use this when ArgoCD is NOT installed
-helm upgrade student-api helm/student-api
-```
-
-### Uninstall
-
-```bash
-helm uninstall student-api
 ```
 
 ## Publishing a New Chart Version
 
 ```bash
 # 1. bump version in Chart.yaml
-# 2. package
 helm package Kubernetes/helm/student-api
-
-# 3. move to docs/
 mv student-api-0.2.0.tgz docs/
-
-# 4. regenerate index
 helm repo index docs/ --url https://jayanthnaidukundrapu.github.io/student-crud-api/
-
-# 5. push
 git add docs/
 git commit -m "helm chart release 0.2.0"
 git push origin master
@@ -447,7 +345,7 @@ git push origin master
 
 # GitOps Deployment (ArgoCD)
 
-ArgoCD watches the git repository and automatically syncs the cluster whenever `values.yaml` or helm templates change. No manual `helm upgrade` needed after initial setup.
+ArgoCD watches the git repo and automatically syncs the cluster when anything changes.
 
 ## How it works
 
@@ -455,28 +353,18 @@ ArgoCD watches the git repository and automatically syncs the cluster whenever `
 Code merged to master
         │
         ▼
-GitHub Actions CI/CD pipeline
-  ├── lint and test (on PR only)
-  └── on merge:
-      ├── build Docker image (tag: sha-<git-sha>)
-      ├── push to Docker Hub
-      └── update Kubernetes/helm/student-api/values.yaml
-              │
-              ▼
-        ArgoCD detects values.yaml changed
-              │
-              ▼
-        helm upgrade runs automatically
-              │
-              ▼
-        new pods roll out with new image
+GitHub Actions builds image (sha-<git-sha>)
+updates Kubernetes/helm/student-api/values.yaml
+        │
+        ▼
+ArgoCD detects values.yaml changed
+        │
+        ▼
+helm upgrade runs automatically
+new pods roll out
 ```
 
-## ArgoCD Setup
-
-ArgoCD runs in the `argocd` namespace on the `dependent_services` node (`minikube-m04`).
-
-### Install ArgoCD via Helm
+## Install ArgoCD
 
 ```bash
 helm repo add argo https://argoproj.github.io/argo-helm
@@ -489,7 +377,7 @@ helm install argocd argo/argo-cd \
   -f Kubernetes/argocd/values.yaml
 ```
 
-`Kubernetes/argocd/values.yaml` pins all ArgoCD components to `minikube-m04`:
+`Kubernetes/argocd/values.yaml` pins all components to `minikube-m04`:
 
 ```yaml
 global:
@@ -497,86 +385,43 @@ global:
     type: dependent_services
 ```
 
-Verify all pods are on `minikube-m04`:
-
-```bash
-kubectl get pods -n argocd -o wide
-# NODE column should show minikube-m04 for all pods
-```
-
 ### Access ArgoCD UI
 
 ```bash
-# port-forward in a separate terminal
 kubectl port-forward svc/argocd-server 8090:443 -n argocd
 
-# get admin password
 kubectl get secret argocd-initial-admin-secret \
   -n argocd \
   -o jsonpath='{.data.password}' | base64 -d
 ```
 
-Open `https://localhost:8090` — username: `admin`, password from above.
+Open `https://localhost:8090` — username: `admin`.
 
-### Apply ArgoCD manifests (declarative)
-
-All ArgoCD resources are committed to git and applied declaratively:
+### Apply declarative manifests
 
 ```bash
 kubectl apply -f Kubernetes/argocd/repository-secret.yaml
 kubectl apply -f Kubernetes/argocd/application.yaml
 ```
 
-`repository-secret.yaml` — gives ArgoCD access to the GitHub repo.
-
-`application.yaml` — tells ArgoCD what to deploy:
-
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: student-api
-  namespace: argocd
-spec:
-  source:
-    repoURL: https://github.com/JayanthNaiduKundrapu/student-crud-api
-    targetRevision: master
-    path: Kubernetes/helm/student-api
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: student-api
-  syncPolicy:
-    automated:
-      prune: true       # removes resources deleted from git
-      selfHeal: true    # reverts manual kubectl changes
-    syncOptions:
-      - CreateNamespace=true
-```
-
-Verify ArgoCD picked it up:
-
 ```bash
 kubectl get application -n argocd
-# SYNC STATUS should be: Synced
-# HEALTH STATUS should be: Healthy
+# SYNC STATUS: Synced
+# HEALTH STATUS: Healthy
 ```
 
-### After ArgoCD is running
-
-Still manual (always):
+### Still manual after ArgoCD
 
 ```bash
-# vault secret (re-run after every vault pod restart)
+# after every vault pod restart
 kubectl exec -it vault-0 -n vault -- sh
 vault kv put secret/student-api POSTGRES_PASSWORD=postgres
 exit
 
-# vault-token
 kubectl create secret generic vault-token \
   --from-literal=VAULT_TOKEN=root \
   -n student-api
 
-# force ESO sync
 kubectl annotate externalsecret student-api-secret \
   force-sync=$(date +%s) \
   --overwrite -n student-api
@@ -590,130 +435,223 @@ kubectl annotate externalsecret student-api-secret \
 
 ```txt
 PR opened         →  lint-and-test only
-PR merged to master →  lint-and-test → build-push-deploy
-                                              │
-                                              ├── docker build + push (sha tag)
-                                              ├── update values.yaml image tag
-                                              └── git commit + push
-                                                        │
-                                                        ▼
-                                                  ArgoCD auto-deploys
+PR merged         →  build image → push → update values.yaml → ArgoCD deploys
 ```
 
-## Pipeline setup
-
-The pipeline runs on a self-hosted runner (your Mac). Set it up at:
-```
-GitHub repo → Settings → Actions → Runners → New self-hosted runner
-```
-
-### Required GitHub secrets and variables
+## Required secrets and variables
 
 | Name | Type | Value |
 |---|---|---|
 | `DOCKER_USERNAME` | Secret | Docker Hub username |
 | `DOCKER_PASSWORD` | Secret | Docker Hub password |
-| `GH_PAT` | Secret | GitHub Personal Access Token (repo scope) |
+| `GH_PAT` | Secret | GitHub PAT with repo scope |
 | `DOCKER_IMAGE_NAME` | Variable | `student-api` |
 | `DATABASE_URL` | Variable | postgres URL for tests |
 
-### Create GH_PAT
+## Key notes
 
-GitHub → Settings → Developer Settings → Personal Access Tokens → Tokens (classic) → `repo` scope.
+`github.actor != 'github-actions'` — prevents pipeline loop when bot commits `values.yaml`.
 
-Add as repo secret named `GH_PAT`.
+`!startsWith(github.event.head_commit.message, 'ci:')` — extra safety net for bot commits.
 
-## Workflow file `.github/workflows/ci-cd.yml`
+`sed -i ''` — macOS BSD sed syntax. Linux uses `sed -i` without the empty string.
 
-```yaml
-name: CI/CD Pipeline
+Image tag uses git SHA so ArgoCD always detects a real change.
 
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - app/**
-      - tests/**
-      - migrations/**
-      - '*.py'
-      - 'Makefile'
-      - 'entrypoint.sh'
-      - 'requirements.txt'
-      - 'Dockerfile'
+---
 
-  push:
-    branches:
-      - master
-    paths:
-      - app/**
-      - migrations/**
-      - '*.py'
-      - 'Makefile'
-      - 'entrypoint.sh'
-      - 'requirements.txt'
-      - 'Dockerfile'
+# Observability Stack
 
-jobs:
-  lint-and-test:
-    runs-on: self-hosted
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.14'
-      - run: make lint
-      - run: make docker-compose-up
-      - name: Run tests
-        env:
-          DATABASE_URL: ${{ vars.DATABASE_URL }}
-        run: make test
+All observability components run in the `observability` namespace on `minikube-m04` (dependent_services node), except node-exporter and Promtail which run on all nodes as DaemonSets.
 
-  build-push-deploy:
-    runs-on: self-hosted
-    if: |
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/master' &&
-      github.actor != 'github-actions' &&
-      !startsWith(github.event.head_commit.message, 'ci:')
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GH_PAT }}
+## Architecture
 
-      - name: Build and push
-        run: |
-          TAG=sha-$(git rev-parse --short HEAD)
-          echo "TAG=$TAG" >> $GITHUB_ENV
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME }}:$TAG .
-          docker push ${{ secrets.DOCKER_USERNAME }}/${{ vars.DOCKER_IMAGE_NAME }}:$TAG
+```txt
+Metrics flow:
 
-      - name: Update values.yaml and push
-        run: |
-          sed -i '' '/^app:/,/^db:/ s/^\([[:space:]]*\)tag:.*/\1tag: "'"$TAG"'"/' Kubernetes/helm/student-api/values.yaml
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add Kubernetes/helm/student-api/values.yaml
-          git commit -m "ci: update image tag to $TAG"
-          git push origin master
+Node Exporter ─────────────┐
+Postgres Exporter ─────────┤
+kube-state-metrics ────────┤──▶ Prometheus ──▶ Grafana
+Blackbox Exporter ─────────┘
+
+Logs flow:
+
+Application Pods ──▶ Promtail ──▶ Loki ──▶ Grafana
 ```
 
-## Important notes
+## What each component does
 
-`github.actor != 'github-actions'` — prevents infinite loop when the bot commits `values.yaml` back to git.
+| Component | Purpose |
+|---|---|
+| Prometheus | Scrapes and stores metrics from all targets every 15s |
+| Grafana | UI — visualizes metrics and logs in dashboards |
+| Loki | Stores and indexes application logs |
+| Promtail | DaemonSet — collects logs from pods and ships to Loki |
+| Node Exporter | DaemonSet — exposes CPU, memory, disk, network metrics per node |
+| kube-state-metrics | Exposes K8s object metrics (pod status, deployments, replicas) |
+| Postgres Exporter | Connects to postgres DB and exposes DB metrics to Prometheus |
+| Blackbox Exporter | Probes HTTP endpoints and reports uptime and latency |
 
-`!startsWith(github.event.head_commit.message, 'ci:')` — extra safety net, skips pipeline for bot commits.
+## Setup
 
-`sed -i ''` — macOS BSD sed syntax. On Linux use `sed -i` without the empty string.
+### Add Helm repos
 
-Image tag uses git SHA (`sha-abc1234`) not a fixed tag — ArgoCD detects the change in `values.yaml` and redeploys.
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
+
+kubectl create namespace observability
+```
+
+### Install Prometheus
+
+```bash
+helm install prometheus prometheus-community/prometheus \
+  -n observability \
+  -f Kubernetes/observability/prometheus-values.yaml
+```
+
+Access:
+```bash
+kubectl port-forward svc/prometheus-server -n observability 9090:80
+# open http://localhost:9090
+# Status → Targets to see what's being scraped
+```
+
+### Install Grafana
+
+```bash
+helm install grafana grafana/grafana \
+  -n observability \
+  -f Kubernetes/observability/grafana-values.yaml
+```
+
+Access:
+```bash
+kubectl port-forward svc/grafana -n observability 3000:80
+# open http://localhost:3000
+# username: admin
+
+kubectl get secret grafana \
+  -n observability \
+  -o jsonpath="{.data.admin-password}" | base64 -d
+```
+
+Grafana is pre-configured with Prometheus as a data source. Verify at Connections → Data Sources → Test.
+
+### Install Loki
+
+```bash
+helm install loki grafana/loki \
+  -n observability \
+  -f Kubernetes/observability/loki-values.yaml
+```
+
+### Install Promtail
+
+Promtail runs as a DaemonSet on all nodes. It is configured to collect logs only from the `student-api` namespace to reduce noise.
+
+```bash
+helm install promtail grafana/promtail \
+  -n observability \
+  -f Kubernetes/observability/promtail-values.yaml
+```
+
+Verify logs in Grafana → Explore → select Loki data source → run:
+```
+{namespace="student-api"}
+```
+
+### Install Postgres Exporter
+
+Postgres does not expose Prometheus metrics natively. The exporter connects to the DB and exposes metrics on `:9187/metrics`.
+
+```bash
+helm install postgres-exporter \
+  prometheus-community/prometheus-postgres-exporter \
+  -n observability \
+  -f Kubernetes/observability/postgres-exporter-values.yaml
+```
+
+Verify in Prometheus:
+```
+pg_up
+```
+Expected result: `1`
+
+### Install kube-state-metrics
+
+```bash
+helm install kube-state-metrics \
+  prometheus-community/kube-state-metrics \
+  -n observability \
+  -f Kubernetes/observability/kube-state-metrics-values.yaml
+```
+
+Verify in Prometheus:
+```
+kube_pod_info
+```
+
+### Install Blackbox Exporter
+
+Probes the following endpoints every 15 seconds:
+- Student API `/healthcheck`
+- Vault
+- ArgoCD
+
+```bash
+helm install blackbox-exporter \
+  prometheus-community/prometheus-blackbox-exporter \
+  -n observability \
+  -f Kubernetes/observability/blackbox-values.yaml
+```
+
+Then upgrade Prometheus to add the blackbox scrape config:
+
+```bash
+helm upgrade prometheus prometheus-community/prometheus \
+  -n observability \
+  -f Kubernetes/observability/prometheus-values.yaml
+```
+
+Verify in Prometheus:
+```
+probe_success
+probe_http_status_code
+probe_duration_seconds
+```
+
+### Add Loki as Grafana data source
+
+After Loki is running, add it in Grafana → Connections → Data Sources → Add:
+- Type: Loki
+- URL: `http://loki.observability.svc.cluster.local:3100`
+
+## Useful Prometheus queries
+
+| Query | What it shows |
+|---|---|
+| `pg_up` | Postgres is reachable (1=up, 0=down) |
+| `kube_pod_info` | Info about all pods in the cluster |
+| `probe_success` | Endpoint up/down (1=up, 0=down) |
+| `probe_http_status_code` | HTTP status code for each probed endpoint |
+| `probe_duration_seconds` | Response latency for each endpoint |
+| `node_cpu_seconds_total` | CPU usage per node |
+| `node_memory_MemAvailable_bytes` | Available memory per node |
+
+## Notes
+
+Promtail runs as a DaemonSet — no nodeSelector, runs on all nodes intentionally so it can collect logs from every node's `/var/log/pods/`.
+
+Node Exporter also runs as a DaemonSet on all nodes — no nodeSelector — so you get hardware metrics from every node, not just m04.
+
+ArgoCD uses a self-signed TLS certificate — Blackbox Exporter will report TLS verification failures for the ArgoCD HTTPS endpoint. This is expected behaviour, not a bug.
 
 ---
 
 # Secret Management — How It Works
-
-Secrets are never hardcoded in any YAML file or committed to git.
 
 ```txt
 HashiCorp Vault
@@ -722,19 +660,8 @@ HashiCorp Vault
             │
             │  ESO pulls on refreshInterval
             ▼
-     SecretStore          ← how ESO connects to Vault
-            │
-     ExternalSecret       ← what to pull and where to put it
-            │
-            │  ESO auto-creates
-            ▼
-     K8s Secret (student-api-secret)
-            │
-            ▼
-     Postgres Pod + Flask Pod
+     SecretStore → ExternalSecret → K8s Secret → Pods
 ```
-
-### What is manual vs automated
 
 | Step | How |
 |---|---|
@@ -743,10 +670,7 @@ HashiCorp Vault
 | Create `vault-token` K8s secret | Manual — `kubectl create secret` |
 | SecretStore, ExternalSecret | Helm via ArgoCD (automated) |
 | K8s Secret creation | ESO (automated) |
-| Secret rotation | ESO re-syncs on `refreshInterval` |
 | New image deployment | ArgoCD (automated after CI push) |
-
-> **Production note:** replace static token auth with Kubernetes auth so no token needs to be stored anywhere.
 
 ---
 
@@ -757,9 +681,9 @@ HashiCorp Vault
 | Symptom | What to check |
 |---|---|
 | `CreateContainerConfigError` | Secret missing — `kubectl get secrets -n student-api` |
-| `CrashLoopBackOff` | Check logs — `kubectl logs <pod> -n student-api` |
-| `Init:0/1` stuck | Init container waiting — `kubectl logs <pod> -n student-api -c migrate-db` |
-| `students` table does not exist | Migrations not in image — check `ls migrations/versions/` |
+| `CrashLoopBackOff` | `kubectl logs <pod> -n student-api` |
+| `Init:0/1` stuck | `kubectl logs <pod> -n student-api -c migrate-db` |
+| `students` table does not exist | `ls migrations/versions/` — migration file missing from image |
 | Pod on wrong node | Check nodeSelector in values.yaml and node labels |
 
 ## ESO / Vault
@@ -767,220 +691,46 @@ HashiCorp Vault
 | Symptom | What to check |
 |---|---|
 | SecretStore `InvalidProvider` | Vault URL wrong — `kubectl get svc -n vault` |
-| SecretStore `vault-token not found` | Create vault-token — `kubectl create secret generic vault-token ...` |
+| SecretStore `vault-token not found` | `kubectl create secret generic vault-token ...` |
 | ExternalSecret `SecretSyncedError` | Vault path missing — exec into vault pod and run `vault kv get secret/student-api` |
-| ExternalSecret not re-syncing | Force sync — `kubectl annotate externalsecret student-api-secret force-sync=$(date +%s) --overwrite -n student-api` |
-| `no matches for kind SecretStore` | ESO not installed or wrong API version — check `helm list -n external-secrets` |
+| ExternalSecret not re-syncing | `kubectl annotate externalsecret student-api-secret force-sync=$(date +%s) --overwrite -n student-api` |
 | ESO v2.5+ `unknown field auth.token` | Use `tokenSecretRef` not `token` |
-| ESO `apiVersion: v1beta1` error | Use `apiVersion: external-secrets.io/v1` for ESO v2.5+ |
+| ESO `apiVersion: v1beta1` error | Use `apiVersion: external-secrets.io/v1` |
 
 ## Helm
 
 | Symptom | What to check |
 |---|---|
-| `helm install` 404 error | index.yaml has wrong URL — regenerate with correct GitHub Pages URL |
-| `cannot reuse a name` | Already installed — `helm uninstall student-api` first |
-| `CRD already exists` error | Leftover from previous install — `kubectl delete crd <name>` |
-| YAML parse error line 20 | nodeSelector template syntax — use `{{- toYaml .Values.x.nodeSelector \| nindent 8 }}` |
-| `conflict with argocd-controller` | Don't run `helm upgrade` manually when ArgoCD is installed — push to git instead |
+| `helm install` 404 error | index.yaml wrong URL — regenerate with correct GitHub Pages URL |
+| `cannot reuse a name` | `helm uninstall student-api` first |
+| `CRD already exists` | `kubectl delete crd <name>` |
+| YAML parse error nodeSelector | Use `{{- toYaml .Values.x.nodeSelector \| nindent 8 }}` |
+| `conflict with argocd-controller` | Never run `helm upgrade` manually when ArgoCD is installed |
 
 ## ArgoCD
 
 | Symptom | What to check |
 |---|---|
-| App `OutOfSync` | ArgoCD detected drift — click Sync in UI or wait for auto-sync |
-| App `Degraded` | Pods unhealthy — `kubectl get pods -n student-api` |
-| ArgoCD not picking up changes | Check poll interval — default 3 mins, or push a webhook |
-| Bot commits triggering pipeline loop | Check `github.actor` condition and commit message filter in workflow |
+| App `OutOfSync` | Wait for auto-sync or click Sync in UI |
+| App `Degraded` | `kubectl get pods -n student-api` |
+| Bot commits triggering pipeline loop | Check `github.actor` and commit message filter |
 | `git push` rejected after bot commit | `git pull origin master --no-rebase` then push |
 
 ## CI/CD
 
 | Symptom | What to check |
 |---|---|
-| Pipeline not triggering | Changed file not in `paths` filter |
+| Pipeline not triggering | File not in `paths` filter |
 | `sed` error on Mac | Use `sed -i ''` not `sed -i` |
-| Pipeline loops infinitely | Bot actor name mismatch — check `git log --format="%an"` |
-| `git push` rejected in pipeline | Remote has new commits — add `git pull` before push in workflow |
+| Pipeline loops | Bot actor name mismatch — check `git log --format="%an"` |
 
+## Observability
 
-# Observability
-
-```txt
-1. Prometheus    ← scrapes metrics, stores them
-2. Grafana       ← UI to visualize metrics
-3. Node Exporter ← hardware metrics from nodes
-4. Kube State Metrics ← K8s object metrics
-5. Loki          ← log storage
-6. Promtail      ← log collector
-7. Postgres Exporter  ← DB metrics
-8. Blackbox Exporter  ← endpoint uptime
-
-```
-
-# Architecture
-
-## File Structure
-
-```txt
-observability/
-├── grafana-dashboards/
-    ├── ......
-├── grafana-slack-alerts/
-    ├── ......
-├── prometheus-values.yaml
-├── loki-values.yaml
-├── promtail-values.yaml
-├── postgres-exporter-values.yaml
-├── kube-state-metrics-values.yaml
-├── grafana-values.yaml
-├── blackbox-values.yaml
-
-```
-
-## Metrics Flow
-
-```txt
-
-   Application 
-     │
-     ▼
-Postgres Exporter ─────┐
-                       │
-kube-state-metrics ────┤
-                       │
-Node Exporter ─────────┤
-                       │
-Blackbox Exporter ─────┤
-                       ▼
-                 Prometheus
-                       │
-                       ▼
-                    Grafana
-
-```
-
-Prometheus scrapes the targets we've configured. (used annotation based)
-
-Grafana is used for visualization of metrics and logs.
-Configured Data sources : Prometheus, Loki
-
-Loki is a log aggregation system.
-Promtail runs as a DaemonSet and collects logs from Kubernetes nodes.
-(we are only collecting logs from the application namespace)
-Promtail collects and forwards the logs to loki
-
-PostgreSQL Exporter
-PostgreSQL does not expose Prometheus metrics by default.
-A PostgreSQL Exporter was deployed to expose database metrics.
-
-kube-state-metrics
-kube-state-metrics exposes information about Kubernetes resources.
-(pods, deployments, nodes etc..)
-
-Node Exporter
-Node Exporter exposes host-level metrics.
-(cpu usage, disk usage, memory usage, network stats)
-
-Blackbox Exporter
-Blackbox Exporter is used to monitor endpoint availability, latency, and HTTP responses.
-
-## Logs Flow
-
-```txt
-
-Application Pods
-       │
-       ▼
-    Promtail
-       │
-       ▼
-      Loki
-       │
-       ▼
-    Grafana
-
-```
-
-
-
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo update
-
-# see all configurable values
-helm show values prometheus-community/prometheus | less
-
-
-# Setup
-
-```bash
-kubectl create namespace observability
-
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-
-helm install prometheus prometheus-community/prometheus \
-  -n observability \
-  -f prometheus-values.yaml
-
-kubectl port-forward svc/prometheus-server \
-  -n observability \
-  9090:80
-
-
-
-helm repo add grafana https://grafana.github.io/helm-charts
-
-helm install grafana grafana/grafana \
-  -n observability \
-  -f grafana-values.yaml
-
-kubectl port-forward svc/grafana \
-  -n observability \
-  3000:80
-
-kubectl get secret grafana \
-  -n observability \
-  -o jsonpath="{.data.admin-password}" | base64 -d
-
-
-
-helm repo add grafana https://grafana.github.io/helm-charts
-
-helm install loki grafana/loki \
-  -n observability \
-  -f loki-values.yaml
-
-
-
-helm install promtail grafana/promtail \
-  -n observability \
-  -f promtail-values.yaml
-
-
-
-helm install postgres-exporter \
-  prometheus-community/prometheus-postgres-exporter \
-  -n observability \
-  -f postgres-exporter-values.yaml
-
-
-
-helm install kube-state-metrics \
-  prometheus-community/kube-state-metrics \
-  -n observability \
-  -f kube-state-metrics-values.yaml
-
-
-
-helm install blackbox-exporter \
-  prometheus-community/prometheus-blackbox-exporter \
-  -n observability \
-  -f blackbox-values.yaml
-
-
-
-
-helm upgrade prometheus prometheus-community/prometheus \
-  -n observability \
-  -f prometheus-values.yaml
-```
+| Symptom | What to check |
+|---|---|
+| Prometheus target down | Check service annotations `prometheus.io/scrape: "true"` |
+| `pg_up` returns 0 | Postgres exporter can't reach DB — check host/port in values |
+| No logs in Grafana | Check Promtail pods running — `kubectl get pods -n observability` |
+| Loki data source error | Verify URL `http://loki.observability.svc.cluster.local:3100` |
+| Blackbox TLS error for ArgoCD | Expected — ArgoCD uses self-signed cert |
+| probe_success = 0 | Endpoint unreachable — check service name and namespace in blackbox config |
