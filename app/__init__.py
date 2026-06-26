@@ -17,6 +17,7 @@ def create_app():
 
     with app.app_context():
         init_otel(app, db)
+
     app.register_blueprint(student_bp)
 
     @app.errorhandler(Exception)
