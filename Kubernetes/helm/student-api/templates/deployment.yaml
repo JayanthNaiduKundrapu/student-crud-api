@@ -90,6 +90,8 @@ spec:
               key: POSTGRES_PASSWORD
         - name: DATABASE_URL
           value: "postgresql://$(DB_USER):$(POSTGRES_PASSWORD)@postgres-service:$(DB_PORT)/$(DB_NAME)"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector-opentelemetry-collector.observability.svc.cluster.local:4318/v1/traces"
         readinessProbe:
           httpGet:
             path: /healthcheck

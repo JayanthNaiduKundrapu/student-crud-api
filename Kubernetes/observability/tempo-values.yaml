@@ -1,0 +1,3 @@
+tempo:
+  nodeSelector:
+    type: dependent_services
