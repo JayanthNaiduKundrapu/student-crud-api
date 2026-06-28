@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from app.extensions import db
 from app.models.student import Student
 from app.utils.logger import setup_logger
+from opentelemetry import trace
 
 student_bp = Blueprint(
     "students",
@@ -10,56 +11,62 @@ student_bp = Blueprint(
 )
 
 logger = setup_logger()
+tracer = trace.get_tracer(__name__)
 
 
 @student_bp.route("", methods=["POST"])
 def create_student():
-    logger.info("Create student endpoint called")
-    data = request.get_json()
 
-    if not data:
-        logger.error("Request payload is empty or invalid JSON")
-        return jsonify({"error": "Invalid request payload"}), 400
+    with tracer.start_as_current_span("Validate Request"):
+        logger.info("Create student endpoint called")
+        data = request.get_json()
 
-    required_fields = ["name", "email", "age"]
+        if not data:
+            logger.error("Request payload is empty or invalid JSON")
+            return jsonify({"error": "Invalid request payload"}), 400
 
-    for field in required_fields:
-        if field not in data:
-            logger.error(f"Missing field: {field}")
-            return jsonify({"error": f"{field} is required"}), 400
+        required_fields = ["name", "email", "age"]
 
-    if not isinstance(data["age"], int) or data["age"] <= 0:
-        logger.error("Invalid age value")
-        return jsonify({"error": "Age must be a positive integer"}), 400
+        for field in required_fields:
+            if field not in data:
+                logger.error(f"Missing field: {field}")
+                return jsonify({"error": f"{field} is required"}), 400
 
-    if "@" not in data["email"]:
-        logger.error("Invalid email address")
-        return jsonify({"error": "Invalid email"}), 400
+        if not isinstance(data["age"], int) or data["age"] <= 0:
+            logger.error("Invalid age value")
+            return jsonify({"error": "Age must be a positive integer"}), 400
 
-    student = Student(
-        name=data["name"],
-        email=data["email"],
-        age=data["age"]
-    )
+        if "@" not in data["email"]:
+            logger.error("Invalid email address")
+            return jsonify({"error": "Invalid email"}), 400
 
-    db.session.add(student)
-    db.session.commit()
+    with tracer.start_as_current_span("Create Student Model"):
+        student = Student(
+            name=data["name"],
+            email=data["email"],
+            age=data["age"]
+        )
 
-    logger.info(f"Student created with ID {student.id}")
+    with tracer.start_as_current_span("Save Student"):
+        db.session.add(student)
+        db.session.commit()
 
-    return jsonify(student.to_dict()), 201
+    with tracer.start_as_current_span("Build Response"):
+        response = jsonify(student.to_dict())
+        logger.info(f"Student created with ID {student.id}")
+
+    return response, 201
 
 
 @student_bp.route("", methods=["GET"])
 def get_students():
 
-    logger.info("Fetching all students")
-    students = Student.query.all()
+    with tracer.start_as_current_span("Fetch Students"):
+        logger.info("Fetching all students")
+        students = Student.query.all()
 
-    result = []
-
-    for student in students:
-        result.append(student.to_dict())
+    with tracer.start_as_current_span("Serialize Response"):
+        result = [student.to_dict() for student in students]
 
     logger.info("Fetched all students successfully")
 
